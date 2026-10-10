@@ -221,9 +221,9 @@ const G = {
   fakeScore: 0,
 };
 const DIFF = {
-  rookie: { dm: 0.92, blitz: 0.15, block: 1.3, cpu: 0.85 },
-  pro:    { dm: 1.0,  blitz: 0.28, block: 1.0, cpu: 1.0 },
-  allpro: { dm: 1.07, blitz: 0.42, block: 0.8, cpu: 1.12 },
+  rookie: { dm: 0.96, blitz: 0.15, block: 1.3, cpu: 0.85 },
+  pro:    { dm: 1.05,  blitz: 0.28, block: 1.0, cpu: 1.0 },
+  allpro: { dm: 1.12, blitz: 0.42, block: 0.8, cpu: 1.12 },
 };
 const D = () => DIFF[G.diff];
 
@@ -304,7 +304,7 @@ function buildPlay(key) {
   const O = (role, x, y, spd, num, name) => mk('off', role, lx(x), y, spd, num, name);
   const ol = [0, 1, 2, 3, 4].map(i => O('OL', x0 - 0.6, YC + (i - 2) * 2.6, 6, OL_NUM[i]));
   const qb = O('QB', x0 - (gun ? 4.6 : 1.4), YC, 6.4, G.me.num, G.me.name); qb.skin = G.me.skin;
-  const rb = O('RB', x0 - (gun ? 4.6 : 5.2), YC + (gun ? 2.4 : 0), 8.2, 22, 'Dayo Okoye');
+  const rb = O('RB', x0 - (gun ? 4.6 : 5.2), YC + (gun ? 2.4 : 0), 7.7, 22, 'Dayo Okoye');
   const te = O('TE', x0 - 0.6, YC + 6.4, 7.5, 85, 'Marcus Keller');
   const wr1 = O('WR', x0 - 0.8, 8, 8.3, 11, 'Tunde Adeyemi');
   const wr2 = O('WR', x0 - 0.8, 45.3, 8.3, 84, 'Chris Bello');
@@ -344,7 +344,7 @@ function buildPlay(key) {
   if (!run) P.targets = [wr1, wr2, te, wr3, rb];
 
   // block pairs
-  const pm = G.buff.pocket ? 1.25 : 1, dur = run ? [1.6, 3.2] : [2.7 * D().block * pm, 4.9 * D().block * pm];
+  const pm = G.buff.pocket ? 1.25 : 1, dur = run ? [1.1, 2.4] : [2.7 * D().block * pm, 4.9 * D().block * pm];
   const rushers = [...dl];
   if (P.blitz) { rushers.push(lb[0]); rushers.push(lb[2]); }
   const assign = (blockers, targets, arr) => {
@@ -573,7 +573,7 @@ function updateLive(dt) {
     if (P.carrier) {
       const react = P.type === 'run' ? d.react : 0.12;
       let s = spd * (P.t - (P.handoffT || 0) < react && P.type === 'run' ? 0.5 : 1);
-      const c = P.carrier, dd = dist(d, c), lead = Math.min(0.9, dd / spd) * 0.85;
+      const c = P.carrier, dd = dist(d, c), lead = Math.min(1.3, dd / spd) * 1.0;
       chase(d, c.x + c.vx * lead, c.y + c.vy * lead, s, dt);
     } else if (P.flight) {
       const f = P.flight, dl = dist(d, { x: f.x1, y: f.y1 });
@@ -631,11 +631,11 @@ function moveCarrier(c, dt) {
 function checkTackle(c, dt) {
   if (c.grace > 0) return;
   const P = G.play;
-  const near = P.def.filter(d => d.stun <= 0 && !d.pinned && !d.fallen && dist(d, c) < 1.05);
+  const near = P.def.filter(d => d.stun <= 0 && !d.fallen && ((!d.pinned && dist(d, c) < 1.3) || (d.pinned && dist(d, c) < 0.9 && Math.random() < 0.06)));
   if (!near.length) return;
   if (c.juke > 0) {
     let left = [];
-    near.forEach(d => { if (Math.random() < 0.7 + ((c.jk || 80) - 80) / 200) d.stun = 0.9; else left.push(d); });
+    near.forEach(d => { if (Math.random() < 0.58 + ((c.jk || 80) - 80) / 200) d.stun = 0.9; else left.push(d); });
     if (!left.length) { c.grace = 0.3; banner('JUKED!', '#ffd400', 900); tone(700, .1, 'triangle', .06); return; }
     near.length = 0; left.forEach(d => near.push(d));
   }
