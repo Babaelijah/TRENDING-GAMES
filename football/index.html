@@ -1800,7 +1800,7 @@ function drawIntro() {
 /* ---------------- online: other players in the stadium ---------------- */
 // Put your deployed server here (see server/README.md), e.g. 'wss://nfl-live.onrender.com'
 // You can also test with  ?server=ws://localhost:8787  on the page address.
-const DEFAULT_SERVER = '';
+const DEFAULT_SERVER = 'wss://nfl-live-server.onrender.com';
 const SERVER_URL = (new URLSearchParams(location.search).get('server') || DEFAULT_SERVER).replace(/\/$/, '');
 const EMO = { wave: '👋', fire: '🔥', flex: '💪', clap: '👏', gg: '🤝' };
 const NET = { ws: null, id: 0, others: new Map(), online: 0, room: '', bubbles: new Map(), log: [], ok: false, tries: 0, sendT: 0, sig: '', want: false, menuOnline: 0 };
