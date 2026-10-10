@@ -31,6 +31,7 @@
 
   <div id="start" class="overlay">
     <h1>FLICK THE BALL</h1>
+    <canvas id="lineup" width="720" height="260" style="width:min(100%,420px);height:auto"></canvas>
     <p>Pull back, let go, and sink the ball in the hole. Pass the phone around!</p>
     <p>How many players?</p>
     <div class="row" id="picks"></div>
@@ -38,6 +39,7 @@
   </div>
 
   <div id="end" class="overlay hidden">
+    <canvas id="winnerAv" width="260" height="260" style="width:200px;height:200px"></canvas>
     <h1 id="winner">Winner!</h1>
     <ol id="board"></ol>
     <div class="row">
@@ -55,7 +57,7 @@
   const START = { x: W / 2, y: 1080 };
   const MAX_PULL = 260, POWER = 5, FRICTION = 1.1, SINK_SPEED = 560;
   const COLORS = ['#ff6a1a', '#ff9f43', '#ffb86b', '#ff7a45', '#ff5e3a'];
-  const MAT_TOP = 230;
+  const MAT_TOP = 350;
 
   const cv = document.getElementById('c');
   const ctx = cv.getContext('2d');
@@ -65,7 +67,7 @@
   let players = [], cur = 0, round = 1;
   let phase = 'menu'; // menu | aim | fly | result | end
   let ball, hole, drag = null, banner = null, particles = [], mood = [];
-  let phaseT = 0, last = 0;
+  let phaseT = 0, last = 0, winnerId = 1;
 
   // ---------- sound ----------
   let ac;
@@ -117,9 +119,9 @@
       if (cur >= players.length) { cur = 0; round++; }
       if (round > ROUNDS) return endGame();
     }
-    hole = { x: 150 + Math.random() * (W - 300), y: MAT_TOP + 150 + Math.random() * 380 };
+    hole = { x: 150 + Math.random() * (W - 300), y: MAT_TOP + 130 + Math.random() * 400 };
     ball = { x: START.x, y: START.y, vx: 0, vy: 0, t: 0, sunk: false, sink: 0 };
-    mood = players.map(() => '🙂');
+    mood = players.map(() => 'idle');
     drag = null; banner = null;
     phase = 'aim';
   }
@@ -127,6 +129,7 @@
   function endGame() {
     phase = 'end';
     const sorted = [...players].sort((a, b) => b.score - a.score);
+    winnerId = sorted[0].id;
     $('winner').textContent = players.length > 1 ? `Player ${sorted[0].id} wins! 🏆` : `You scored ${sorted[0].score}!`;
     $('board').innerHTML = sorted.map(p => `<li><span>Player ${p.id}</span><span>${p.score}</span></li>`).join('');
     $('share').textContent = 'Share';
@@ -156,7 +159,7 @@
     const k = Math.min(len, MAX_PULL) / len;
     ball.vx = dx * k * POWER; ball.vy = dy * k * POWER;
     ball.t = 0; phase = 'fly';
-    mood = players.map(() => '😮');
+    mood = players.map(() => 'shock');
     beep(300, .25, 'sawtooth', .1, 500);
   };
   cv.addEventListener('pointerup', release);
@@ -209,19 +212,124 @@
     players[cur].last = pts;
     phase = 'result'; phaseT = 0;
     if (sunk) {
-      mood = players.map(() => '🎉');
+      mood = players.map(() => 'cheer');
       banner = { text: 'IN THE HOLE! +100', color: '#06d6a0' };
       confetti(hole.x, hole.y);
       beep(660, .12, 'triangle'); setTimeout(() => beep(990, .2, 'triangle'), 110);
     } else if (pts >= 35) {
-      mood = players.map(() => '😬');
+      mood = players.map(() => 'worry');
       banner = { text: `SO CLOSE! +${pts}`, color: '#ffd166' };
       beep(300, .2, 'sine');
     } else {
-      mood = players.map(() => '😭');
+      mood = players.map(() => 'sad');
       banner = { text: `MISS +${pts}`, color: '#ef476f' };
       beep(160, .3, 'sawtooth', .1, -60);
     }
+  }
+
+  // ---------- avatars ----------
+  const CHARS = [
+    { skin: '#e8b48c', hair: 'wavy',   hc: '#4a3222', top: 'tee',     tc: '#ffb27a', lashes: false },
+    { skin: '#e3ab85', hair: 'long',   hc: '#3b2a22', top: 'tee',     tc: '#ffc267', lashes: true  },
+    { skin: '#f6d3b8', hair: 'bun',    hc: '#e6c27a', top: 'hoodie',  tc: '#ff7a3c', lashes: true  },
+    { skin: '#efc4a2', hair: 'pulled', hc: '#4b3426', top: 'halfzip', tc: '#ff8a4a', lashes: true  },
+    { skin: '#f2caa8', hair: 'curly',  hc: '#5a3d2b', top: 'jersey',  tc: '#ff5a1f', lashes: false },
+  ];
+  const NAVY = '#1f3f8f';
+  function circ(c, x, y, r, fill) { c.fillStyle = fill; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); }
+  function rrect(c, x, y, w, h, r) {
+    c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  }
+  function cap(c, color, cy) {
+    c.fillStyle = color; c.beginPath();
+    c.arc(0, -46, 36, Math.PI + 0.05, Math.PI * 2 - 0.05);
+    c.quadraticCurveTo(0, cy, -35, -48); c.closePath(); c.fill();
+  }
+  function limb(c, k, x0, y0, x1, y1) {
+    const sleeved = k.top === 'hoodie' || k.top === 'halfzip';
+    const frac = sleeved ? 1 : 0.5;
+    c.lineCap = 'round';
+    c.strokeStyle = k.skin; c.lineWidth = 22; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+    c.strokeStyle = k.tc; c.lineWidth = 27; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x0 + (x1 - x0) * frac, y0 + (y1 - y0) * frac); c.stroke();
+    if (k.top === 'jersey') {
+      c.strokeStyle = NAVY; c.lineWidth = 27; c.beginPath();
+      c.moveTo(x0 + (x1 - x0) * .38, y0 + (y1 - y0) * .38); c.lineTo(x0 + (x1 - x0) * .46, y0 + (y1 - y0) * .46); c.stroke();
+    }
+    circ(c, x1, y1, 12, k.skin);
+  }
+
+  // origin = base of the neck; the caller translates/scales
+  function drawAvatar(c, id, mood, t) {
+    const k = CHARS[id - 1], ink = '#2b1d16';
+    // behind the body
+    if (k.hair === 'long') { c.fillStyle = k.hc; rrect(c, -45, -86, 90, 160, 40); c.fill(); }
+    if (k.hair === 'bun') circ(c, 16, -92, 15, k.hc);
+    if (k.hair === 'long') circ(c, 0, -90, 14, k.hc);
+    if (k.hair === 'curly') for (let i = 0; i < 11; i++) { const a = Math.PI + i * Math.PI / 10; circ(c, Math.cos(a) * 33, -46 + Math.sin(a) * 33, 13, k.hc); }
+    if (k.hair === 'wavy') [[-30, -60, 12], [-14, -80, 15], [10, -83, 15], [30, -66, 12]].forEach(b => circ(c, b[0], b[1], b[2], k.hc));
+    if (k.hair === 'pulled') { c.fillStyle = k.hc; rrect(c, -50, -46, 15, 60, 7); c.fill(); }
+    // neck + torso
+    c.fillStyle = k.skin; c.fillRect(-12, -28, 24, 28);
+    if (k.top === 'hoodie') { c.fillStyle = '#e8632a'; rrect(c, -38, -22, 76, 32, 16); c.fill(); }
+    c.fillStyle = k.tc; rrect(c, -56, -6, 112, 180, 30); c.fill();
+    if (k.top === 'tee') { c.fillStyle = k.skin; c.beginPath(); c.ellipse(0, -5, 16, 9, 0, 0, 7); c.fill(); }
+    if (k.top === 'hoodie') {
+      c.strokeStyle = '#fff'; c.lineWidth = 3; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(-9, 8); c.lineTo(-9, 48); c.moveTo(9, 8); c.lineTo(9, 48); c.stroke();
+    }
+    if (k.top === 'halfzip') {
+      c.fillStyle = NAVY; rrect(c, -30, -12, 60, 16, 8); c.fill();
+      c.beginPath(); c.moveTo(-24, -4); c.lineTo(0, 44); c.lineTo(24, -4); c.closePath(); c.fill();
+      c.fillStyle = k.skin; c.beginPath(); c.moveTo(-12, -6); c.lineTo(0, 16); c.lineTo(12, -6); c.closePath(); c.fill();
+      c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = 3; c.beginPath(); c.moveTo(0, 44); c.lineTo(0, 150); c.stroke();
+    }
+    if (k.top === 'jersey') {
+      c.fillStyle = NAVY; c.beginPath(); c.moveTo(-28, -6); c.lineTo(0, 38); c.lineTo(28, -6); c.closePath(); c.fill();
+      c.fillStyle = k.skin; c.beginPath(); c.moveTo(-16, -6); c.lineTo(0, 20); c.lineTo(16, -6); c.closePath(); c.fill();
+      c.font = '900 54px system-ui'; c.textAlign = 'center'; c.lineJoin = 'round';
+      c.lineWidth = 7; c.strokeStyle = NAVY; c.strokeText('9', 0, 94); c.fillStyle = '#fff'; c.fillText('9', 0, 94);
+    }
+    if (id === 2) { c.strokeStyle = '#e9c46a'; c.lineWidth = 2.5; c.beginPath(); c.arc(0, -10, 14, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke(); }
+    // head
+    circ(c, -34, -44, 7, k.skin); circ(c, 34, -44, 7, k.skin); circ(c, 0, -46, 34, k.skin);
+    // hair in front
+    cap(c, k.hc, k.hair === 'wavy' ? -86 : -82);
+    if (k.hair === 'long') {
+      c.fillStyle = k.hc; rrect(c, -38, -62, 13, 72, 6); c.fill(); rrect(c, 25, -62, 13, 72, 6); c.fill();
+      c.strokeStyle = '#b98a5a'; c.lineWidth = 3; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(-32, -50); c.lineTo(-33, 0); c.moveTo(32, -50); c.lineTo(33, 0); c.moveTo(-8, -76); c.lineTo(-20, -60); c.stroke();
+    }
+    if (k.hair === 'bun') { c.strokeStyle = '#c9a25a'; c.lineWidth = 3; c.beginPath(); c.moveTo(-20, -74); c.lineTo(-28, -56); c.moveTo(6, -78); c.lineTo(-6, -66); c.stroke(); }
+    // face
+    const ey = -46, shock = mood === 'shock', cheer = mood === 'cheer', sad = mood === 'sad', worry = mood === 'worry';
+    c.lineCap = 'round'; c.strokeStyle = ink; c.fillStyle = ink; c.lineWidth = 3;
+    if (id === 2 || id === 3 || id === 4) { c.fillStyle = 'rgba(255,90,90,.28)'; c.beginPath(); c.ellipse(-22, -32, 7, 4, 0, 0, 7); c.ellipse(22, -32, 7, 4, 0, 0, 7); c.fill(); c.fillStyle = ink; }
+    [-13, 13].forEach(ex => {
+      if (cheer) { c.beginPath(); c.arc(ex, ey + 3, 6, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); }
+      else { circ(c, ex, ey, shock ? 5.5 : 4.5, ink); circ(c, ex + 1.5, ey - 1.5, 1.6, '#fff'); }
+    });
+    if (k.lashes) { c.lineWidth = 2.5; c.beginPath(); c.moveTo(-18, ey - 3); c.lineTo(-22, ey - 7); c.moveTo(18, ey - 3); c.lineTo(22, ey - 7); c.stroke(); c.lineWidth = 3; }
+    c.lineWidth = 3;
+    const by = shock ? -62 : -58; // brows
+    c.beginPath();
+    if (worry || sad) { c.moveTo(-20, by + 1); c.lineTo(-7, by - 4); c.moveTo(20, by + 1); c.lineTo(7, by - 4); }
+    else { c.moveTo(-19, by); c.lineTo(-7, by - (shock ? 2 : 1)); c.moveTo(19, by); c.lineTo(7, by - (shock ? 2 : 1)); }
+    c.stroke();
+    if (cheer) {
+      c.fillStyle = '#7a2a2a'; c.beginPath(); c.arc(0, -35, 13, 0, Math.PI); c.closePath(); c.fill();
+      c.fillStyle = '#fff'; c.fillRect(-9, -35, 18, 4); c.fillStyle = ink;
+    } else if (shock) { c.beginPath(); c.ellipse(0, -26, 6, 8, 0, 0, 7); c.fillStyle = '#7a2a2a'; c.fill(); }
+    else if (sad) { c.beginPath(); c.arc(0, -17, 9, Math.PI * 1.15, Math.PI * 1.85); c.stroke(); circ(c, 17, -34, 3, '#6ec6ff'); }
+    else if (worry) { c.beginPath(); c.moveTo(-9, -24); c.quadraticCurveTo(-4, -30, 0, -24); c.quadraticCurveTo(4, -18, 9, -24); c.stroke(); }
+    else { c.beginPath(); c.arc(0, -36, 10, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke(); }
+    // arms
+    const w = Math.sin(t * 12) * 10;
+    if (cheer) { limb(c, k, -48, 14, -84, -72 + w); limb(c, k, 48, 14, 84, -72 - w); }
+    else if (shock) { limb(c, k, -48, 14, -46, -30); limb(c, k, 48, 14, 46, -30); }
+    else if (worry) { limb(c, k, -48, 14, -22, 58); limb(c, k, 48, 14, 22, 58); }
+    else if (sad) { limb(c, k, -48, 14, -58, 100); limb(c, k, 48, 14, 58, 100); }
+    else { limb(c, k, -48, 14, -66, 92); limb(c, k, 48, 14, 66, 92); }
   }
 
   // ---------- draw ----------
@@ -261,27 +369,27 @@
 
   function draw() {
     // background wall
-    ctx.fillStyle = '#d9cfc0'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#d9cfc0'; ctx.fillRect(0, 0, W, 290);
     ctx.fillStyle = '#cbbfae';
-    for (let y = 0; y < 150; y += 38) for (let x = (y / 38 % 2) * 40; x < W; x += 80) ctx.fillRect(x + 2, y + 2, 76, 34);
-    // table
-    ctx.fillStyle = '#c9a77c'; ctx.fillRect(0, 150, W, 80);
-    // mat
-    ctx.fillStyle = '#fafafa'; ctx.fillRect(0, MAT_TOP, W, H - MAT_TOP);
-
+    for (let y = 0; y < 290; y += 38) for (let x = (y / 38 % 2) * 40 - 40; x < W; x += 80) ctx.fillRect(x + 2, y + 2, 76, 34);
     // crowd (players 1..n)
-    const n = players.length || 1;
+    const n = phase === 'menu' ? 0 : players.length || 1, sc = n <= 3 ? 1.15 : 1, now = performance.now() / 1000;
     for (let i = 0; i < n; i++) {
       const x = (i + 0.5) * W / n, active = i === cur && phase !== 'menu' && phase !== 'end';
-      const bob = active ? Math.sin(performance.now() / 150) * 6 : 0;
-      ctx.font = '70px serif'; ctx.textAlign = 'center';
-      ctx.fillText((mood[i] || '🙂'), x, 110 + bob);
-      ctx.font = '900 54px system-ui'; ctx.lineWidth = 8; ctx.strokeStyle = active ? '#ff6a1a' : '#1b1b22';
-      ctx.strokeText(i + 1, x, 60); ctx.fillStyle = '#fff'; ctx.fillText(i + 1, x, 60);
-      if (players[i]) {
-        ctx.font = '700 26px system-ui'; ctx.fillStyle = '#1b1b22';
-        ctx.fillText(players[i].score, x, 205);
-      }
+      const m = mood[i] || 'idle';
+      if (active) { const g = ctx.createRadialGradient(x, 150, 10, x, 150, 110); g.addColorStop(0, 'rgba(255,106,26,.45)'); g.addColorStop(1, 'rgba(255,106,26,0)'); ctx.fillStyle = g; ctx.fillRect(x - 120, 40, 240, 250); }
+      const hop = m === 'cheer' ? -Math.abs(Math.sin(now * 9 + i)) * 18 : active ? Math.sin(now * 5) * 3 : Math.sin(now * 2 + i) * 2;
+      ctx.save(); ctx.translate(x, 190 + hop); ctx.scale(sc, sc); drawAvatar(ctx, i + 1, m, now); ctx.restore();
+      ctx.textAlign = 'center'; ctx.font = '900 54px system-ui'; ctx.lineWidth = 8; ctx.lineJoin = 'round';
+      ctx.strokeStyle = active ? '#ff6a1a' : '#1b1b22'; ctx.strokeText(i + 1, x, 62); ctx.fillStyle = '#fff'; ctx.fillText(i + 1, x, 62);
+    }
+    // table in front of them, then the mat
+    ctx.fillStyle = '#fafafa'; ctx.fillRect(0, MAT_TOP, W, H - MAT_TOP);
+    ctx.fillStyle = '#d8b88c'; ctx.fillRect(0, 290, W, 60);
+    ctx.fillStyle = '#c9a77c'; ctx.fillRect(0, 290, W, 10);
+    for (let i = 0; i < n; i++) if (players[i]) {
+      ctx.font = '800 30px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#1b1b22';
+      ctx.fillText(players[i].score, (i + 0.5) * W / n, 336);
     }
 
     if (phase === 'menu' || !ball) return;
@@ -316,13 +424,22 @@
 
     if (banner && phase === 'result') {
       ctx.font = '900 56px system-ui'; ctx.lineWidth = 12; ctx.strokeStyle = '#1b1b22'; ctx.lineJoin = 'round';
-      ctx.strokeText(banner.text, W / 2, 700 - 0); ctx.fillStyle = banner.color; ctx.fillText(banner.text, W / 2, 700);
+      ctx.strokeText(banner.text, W / 2, 960); ctx.fillStyle = banner.color; ctx.fillText(banner.text, W / 2, 960);
     }
   }
 
   function loop(ts) {
     const dt = Math.min(0.033, (ts - last) / 1000 || 0); last = ts;
     update(dt); draw();
+    const nowS = ts / 1000;
+    if (phase === 'menu') {
+      const lc = $('lineup').getContext('2d'); lc.clearRect(0, 0, 720, 260);
+      for (let i = 0; i < 5; i++) { lc.save(); lc.translate((i + .5) * 144, 190 + Math.sin(nowS * 2 + i) * 3); drawAvatar(lc, i + 1, 'idle', nowS); lc.restore(); }
+    } else if (phase === 'end') {
+      const wc = $('winnerAv').getContext('2d'); wc.clearRect(0, 0, 260, 260);
+      wc.save(); wc.translate(130, 190 - Math.abs(Math.sin(nowS * 8)) * 14); wc.scale(1.1, 1.1); drawAvatar(wc, winnerId, 'cheer', nowS); wc.restore();
+      wc.fillStyle = '#ff6a1a'; wc.fillRect(40, 222, 180, 38); wc.fillStyle = '#fff'; wc.font = '900 28px system-ui'; wc.textAlign = 'center'; wc.fillText('1', 130, 250);
+    }
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
