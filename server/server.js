@@ -3,6 +3,11 @@
 //   PORT=8787 node server.js
 const http = require('http');
 const { WebSocketServer } = require('ws');
+const fs = require('fs'), path = require('path');
+// The same server also hosts the game page, so the Render address itself opens NFL Live.
+const GAME_DIR = path.join(__dirname, '..', 'football');
+const FILES = { '/': 'index.html', '/index.html': 'index.html', '/football': 'index.html', '/football/': 'index.html', '/rosters.js': 'rosters.js', '/football/rosters.js': 'rosters.js' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
 
 const PORT = process.env.PORT || 8787;
 const ROOM_CAP = +process.env.ROOM_CAP || 50;     // players per room instance
@@ -45,7 +50,12 @@ const num = (v, lo, hi, d) => { v = +v; return Number.isFinite(v) ? Math.min(hi,
 
 const server = http.createServer((req, res) => {
   const h = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
-  if (req.url === '/stats' || req.url === '/') {
+  const url = req.url.split('?')[0];
+  if (FILES[url]) {
+    const f = path.join(GAME_DIR, FILES[url]);
+    return fs.readFile(f, (e, buf) => { if (e) { res.writeHead(404, h); return res.end('{"error":"game files not found"}'); } res.writeHead(200, { 'Content-Type': MIME[path.extname(f)], 'Cache-Control': 'no-cache' }); res.end(buf); });
+  }
+  if (url === '/stats') {
     const byScene = {}; rooms.forEach(r => { byScene[r.scene] = (byScene[r.scene] || 0) + r.players.size; });
     res.writeHead(200, h); return res.end(JSON.stringify({ online: clients.size, rooms: rooms.size, byScene }));
   }
