@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Flick the Ball</title>
+<style>
+  :root { --orange:#ff6a1a; --dark:#1b1b22; --cream:#fff3e6; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; background:var(--dark); overflow:hidden; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; touch-action:none; }
+  #wrap { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+  #stage { position:relative; height:100%; aspect-ratio:720/1280; max-width:100%; max-height:100%; }
+  canvas { width:100%; height:100%; display:block; touch-action:none; }
+  .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; background:rgba(27,27,34,.88); color:#fff; text-align:center; padding:24px; }
+  .overlay.hidden { display:none; }
+  h1 { margin:0; font-size:44px; line-height:1; color:var(--orange); letter-spacing:1px; }
+  p { margin:0; opacity:.85; max-width:30ch; }
+  .row { display:flex; gap:10px; }
+  button { font:inherit; font-weight:700; border:0; border-radius:14px; padding:14px 22px; background:var(--orange); color:#fff; cursor:pointer; }
+  button.alt { background:#33333f; }
+  button.pick { width:52px; height:52px; padding:0; font-size:22px; background:#33333f; }
+  button.pick.sel { background:var(--orange); }
+  ol { list-style:none; padding:0; margin:0; width:min(320px,100%); text-align:left; }
+  li { display:flex; justify-content:space-between; padding:10px 14px; margin:6px 0; border-radius:12px; background:#2a2a35; font-weight:700; }
+  li:first-child { background:var(--orange); }
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <canvas id="c" width="720" height="1280"></canvas>
+
+  <div id="start" class="overlay">
+    <h1>FLICK THE BALL</h1>
+    <p>Pull back, let go, and sink the ball in the hole. Pass the phone around!</p>
+    <p>How many players?</p>
+    <div class="row" id="picks"></div>
+    <button id="go">PLAY</button>
+  </div>
+
+  <div id="end" class="overlay hidden">
+    <h1 id="winner">Winner!</h1>
+    <ol id="board"></ol>
+    <div class="row">
+      <button id="again">Play again</button>
+      <button id="share" class="alt">Share</button>
+    </div>
+  </div>
+</div></div>
+
+<script>
+(() => {
+  const W = 720, H = 1280;
+  const ROUNDS = 3;
+  const BALL_R = 30, HOLE_R = 48;
+  const START = { x: W / 2, y: 1080 };
+  const MAX_PULL = 260, POWER = 5, FRICTION = 1.1, SINK_SPEED = 560;
+  const COLORS = ['#ff6a1a', '#ff9f43', '#ffb86b', '#ff7a45', '#ff5e3a'];
+  const MAT_TOP = 230;
+
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const $ = id => document.getElementById(id);
+
+  let nPlayers = 3;
+  let players = [], cur = 0, round = 1;
+  let phase = 'menu'; // menu | aim | fly | result | end
+  let ball, hole, drag = null, banner = null, particles = [], mood = [];
+  let phaseT = 0, last = 0;
+
+  // ---------- sound ----------
+  let ac;
+  function beep(f, d = 0.12, type = 'sine', vol = 0.15, slide = 0) {
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.value = f;
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), ac.currentTime + d);
+      g.gain.setValueAtTime(vol, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + d);
+      o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + d);
+    } catch (e) {}
+  }
+
+  // ---------- setup ----------
+  const picks = $('picks');
+  for (let i = 1; i <= 5; i++) {
+    const b = document.createElement('button');
+    b.className = 'pick' + (i === nPlayers ? ' sel' : '');
+    b.textContent = i;
+    b.onclick = () => {
+      nPlayers = i;
+      [...picks.children].forEach((c, k) => c.classList.toggle('sel', k + 1 === i));
+    };
+    picks.appendChild(b);
+  }
+  $('go').onclick = () => { beep(520, .1, 'square'); startGame(); };
+  $('again').onclick = () => { $('end').classList.add('hidden'); $('start').classList.remove('hidden'); phase = 'menu'; };
+  $('share').onclick = async () => {
+    const top = [...players].sort((a, b) => b.score - a.score)[0];
+    const text = `Player ${top.id} won Flick the Ball with ${top.score} points! Can you beat it?`;
+    try {
+      if (navigator.share) await navigator.share({ title: 'Flick the Ball', text, url: location.href });
+      else { await navigator.clipboard.writeText(text + ' ' + location.href); $('share').textContent = 'Copied!'; }
+    } catch (e) {}
+  };
+
+  function startGame() {
+    players = Array.from({ length: nPlayers }, (_, i) => ({ id: i + 1, score: 0, last: null }));
+    cur = 0; round = 1;
+    $('start').classList.add('hidden');
+    nextTurn(true);
+  }
+
+  function nextTurn(first) {
+    if (!first) {
+      cur++;
+      if (cur >= players.length) { cur = 0; round++; }
+      if (round > ROUNDS) return endGame();
+    }
+    hole = { x: 150 + Math.random() * (W - 300), y: MAT_TOP + 150 + Math.random() * 380 };
+    ball = { x: START.x, y: START.y, vx: 0, vy: 0, t: 0, sunk: false, sink: 0 };
+    mood = players.map(() => '🙂');
+    drag = null; banner = null;
+    phase = 'aim';
+  }
+
+  function endGame() {
+    phase = 'end';
+    const sorted = [...players].sort((a, b) => b.score - a.score);
+    $('winner').textContent = players.length > 1 ? `Player ${sorted[0].id} wins! 🏆` : `You scored ${sorted[0].score}!`;
+    $('board').innerHTML = sorted.map(p => `<li><span>Player ${p.id}</span><span>${p.score}</span></li>`).join('');
+    $('share').textContent = 'Share';
+    $('end').classList.remove('hidden');
+    beep(660, .15, 'triangle'); setTimeout(() => beep(880, .25, 'triangle'), 150);
+  }
+
+  // ---------- input ----------
+  function pt(e) {
+    const r = cv.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+  }
+  cv.addEventListener('pointerdown', e => {
+    if (phase !== 'aim') return;
+    const p = pt(e);
+    if (Math.hypot(p.x - ball.x, p.y - ball.y) < 140) {
+      drag = p; cv.setPointerCapture(e.pointerId);
+    }
+  });
+  cv.addEventListener('pointermove', e => { if (drag) drag = pt(e); });
+  const release = () => {
+    if (!drag) return;
+    let dx = ball.x - drag.x, dy = ball.y - drag.y;
+    const len = Math.hypot(dx, dy);
+    drag = null;
+    if (len < 30) return;
+    const k = Math.min(len, MAX_PULL) / len;
+    ball.vx = dx * k * POWER; ball.vy = dy * k * POWER;
+    ball.t = 0; phase = 'fly';
+    mood = players.map(() => '😮');
+    beep(300, .25, 'sawtooth', .1, 500);
+  };
+  cv.addEventListener('pointerup', release);
+  cv.addEventListener('pointercancel', () => { drag = null; });
+
+  // ---------- update ----------
+  function confetti(x, y) {
+    for (let i = 0; i < 60; i++) {
+      const a = Math.random() * Math.PI * 2, s = 150 + Math.random() * 450;
+      particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 200, life: 1.2, c: ['#ff6a1a', '#ffd166', '#fff', '#06d6a0', '#118ab2'][i % 5] });
+    }
+  }
+
+  function update(dt) {
+    particles.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 700 * dt; p.life -= dt; });
+    particles = particles.filter(p => p.life > 0);
+
+    if (phase === 'fly') {
+      ball.t += dt;
+      const steps = 4, h = dt / steps;
+      for (let s = 0; s < steps && !ball.sunk; s++) {
+        ball.x += ball.vx * h; ball.y += ball.vy * h;
+        const f = Math.exp(-FRICTION * h);
+        ball.vx *= f; ball.vy *= f;
+        if (ball.x < BALL_R) { ball.x = BALL_R; ball.vx = Math.abs(ball.vx) * .7; beep(200, .05, 'square', .06); }
+        if (ball.x > W - BALL_R) { ball.x = W - BALL_R; ball.vx = -Math.abs(ball.vx) * .7; beep(200, .05, 'square', .06); }
+        if (ball.y < MAT_TOP + BALL_R) { ball.y = MAT_TOP + BALL_R; ball.vy = Math.abs(ball.vy) * .7; beep(200, .05, 'square', .06); }
+        if (ball.y > H - BALL_R) { ball.y = H - BALL_R; ball.vy = -Math.abs(ball.vy) * .7; }
+        const sp = Math.hypot(ball.vx, ball.vy);
+        const d = Math.hypot(ball.x - hole.x, ball.y - hole.y);
+        if (ball.t > 0.3 && d < HOLE_R * 0.85 && sp < SINK_SPEED) { ball.sunk = true; break; }
+      }
+      if (ball.sunk) finishTurn(true);
+      else if (Math.hypot(ball.vx, ball.vy) < 15) finishTurn(false);
+    } else if (phase === 'result') {
+      phaseT += dt;
+      if (ball.sunk) {
+        ball.sink = Math.min(1, ball.sink + dt * 4);
+        ball.x += (hole.x - ball.x) * Math.min(1, dt * 12);
+        ball.y += (hole.y - ball.y) * Math.min(1, dt * 12);
+      }
+      if (phaseT > 1.8) nextTurn(false);
+    }
+  }
+
+  function finishTurn(sunk) {
+    const d = Math.hypot(ball.x - hole.x, ball.y - hole.y);
+    const pts = sunk ? 100 : Math.max(0, Math.round(50 - d / 10));
+    players[cur].score += pts;
+    players[cur].last = pts;
+    phase = 'result'; phaseT = 0;
+    if (sunk) {
+      mood = players.map(() => '🎉');
+      banner = { text: 'IN THE HOLE! +100', color: '#06d6a0' };
+      confetti(hole.x, hole.y);
+      beep(660, .12, 'triangle'); setTimeout(() => beep(990, .2, 'triangle'), 110);
+    } else if (pts >= 35) {
+      mood = players.map(() => '😬');
+      banner = { text: `SO CLOSE! +${pts}`, color: '#ffd166' };
+      beep(300, .2, 'sine');
+    } else {
+      mood = players.map(() => '😭');
+      banner = { text: `MISS +${pts}`, color: '#ef476f' };
+      beep(160, .3, 'sawtooth', .1, -60);
+    }
+  }
+
+  // ---------- draw ----------
+  function drawBall(x, y, r, t, sink) {
+    // pop animation: flat disc (t=0) -> ball (t=1)
+    const pop = Math.max(0, Math.min(1, (t - 0.15) / 0.3));
+    const sc = 1 - sink * 0.6;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sc, sc);
+    // shadow
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.beginPath(); ctx.ellipse(6, r * 0.9, r * (1.1 - pop * .1), r * .35, 0, 0, 7); ctx.fill();
+    if (pop < 1) {
+      // petals of the flat disc
+      ctx.globalAlpha = 1 - pop;
+      ctx.fillStyle = COLORS[0];
+      for (let i = 0; i < 6; i++) {
+        const a = i * Math.PI / 3;
+        ctx.beginPath(); ctx.ellipse(Math.cos(a) * r * 0.9, Math.sin(a) * r * 0.6, r * .6, r * .4, a, 0, 7); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    const g = ctx.createRadialGradient(-r * .3, -r * .3, r * .1, 0, 0, r);
+    g.addColorStop(0, '#ffa766'); g.addColorStop(1, '#e8500a');
+    ctx.globalAlpha = Math.max(.35, pop);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, r * (0.7 + 0.3 * pop), 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#ffd400'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(-r * 1.1, 0, r * .9, -.7, .7); ctx.stroke();
+    ctx.beginPath(); ctx.arc(r * 1.1, 0, r * .9, Math.PI - .7, Math.PI + .7); ctx.stroke();
+    ctx.fillStyle = '#ffd400';
+    ctx.beginPath(); ctx.arc(r * .1, -r * .15, r * .16, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+
+  function draw() {
+    // background wall
+    ctx.fillStyle = '#d9cfc0'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#cbbfae';
+    for (let y = 0; y < 150; y += 38) for (let x = (y / 38 % 2) * 40; x < W; x += 80) ctx.fillRect(x + 2, y + 2, 76, 34);
+    // table
+    ctx.fillStyle = '#c9a77c'; ctx.fillRect(0, 150, W, 80);
+    // mat
+    ctx.fillStyle = '#fafafa'; ctx.fillRect(0, MAT_TOP, W, H - MAT_TOP);
+
+    // crowd (players 1..n)
+    const n = players.length || 1;
+    for (let i = 0; i < n; i++) {
+      const x = (i + 0.5) * W / n, active = i === cur && phase !== 'menu' && phase !== 'end';
+      const bob = active ? Math.sin(performance.now() / 150) * 6 : 0;
+      ctx.font = '70px serif'; ctx.textAlign = 'center';
+      ctx.fillText((mood[i] || '🙂'), x, 110 + bob);
+      ctx.font = '900 54px system-ui'; ctx.lineWidth = 8; ctx.strokeStyle = active ? '#ff6a1a' : '#1b1b22';
+      ctx.strokeText(i + 1, x, 60); ctx.fillStyle = '#fff'; ctx.fillText(i + 1, x, 60);
+      if (players[i]) {
+        ctx.font = '700 26px system-ui'; ctx.fillStyle = '#1b1b22';
+        ctx.fillText(players[i].score, x, 205);
+      }
+    }
+
+    if (phase === 'menu' || !ball) return;
+
+    // hole
+    ctx.fillStyle = '#ff6a1a'; ctx.beginPath(); ctx.arc(hole.x, hole.y, HOLE_R + 8, 0, 7); ctx.fill();
+    ctx.fillStyle = '#2a2a2f'; ctx.beginPath(); ctx.arc(hole.x, hole.y, HOLE_R, 0, 7); ctx.fill();
+
+    // aim line
+    if (drag) {
+      let dx = ball.x - drag.x, dy = ball.y - drag.y;
+      const len = Math.hypot(dx, dy), k = Math.min(len, MAX_PULL) / (len || 1);
+      dx *= k; dy *= k;
+      ctx.strokeStyle = 'rgba(255,106,26,.8)'; ctx.lineWidth = 6; ctx.setLineDash([4, 18]); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(ball.x, ball.y); ctx.lineTo(ball.x + dx * 2.2, ball.y + dy * 2.2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(ball.x, ball.y); ctx.lineTo(ball.x - dx, ball.y - dy); ctx.stroke();
+    }
+
+    drawBall(ball.x, ball.y, BALL_R, phase === 'aim' ? 0 : ball.t, ball.sink);
+
+    // HUD
+    ctx.textAlign = 'center';
+    ctx.font = '700 30px system-ui'; ctx.fillStyle = '#1b1b22';
+    ctx.fillText(`Round ${Math.min(round, ROUNDS)}/${ROUNDS}  •  Player ${players[cur].id}'s turn`, W / 2, H - 40);
+    if (phase === 'aim' && !drag) { ctx.font = '600 28px system-ui'; ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText('Pull back the ball and let go', W / 2, H - 90); }
+
+    // confetti
+    particles.forEach(p => { ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, 10, 10); });
+    ctx.globalAlpha = 1;
+
+    if (banner && phase === 'result') {
+      ctx.font = '900 56px system-ui'; ctx.lineWidth = 12; ctx.strokeStyle = '#1b1b22'; ctx.lineJoin = 'round';
+      ctx.strokeText(banner.text, W / 2, 700 - 0); ctx.fillStyle = banner.color; ctx.fillText(banner.text, W / 2, 700);
+    }
+  }
+
+  function loop(ts) {
+    const dt = Math.min(0.033, (ts - last) / 1000 || 0); last = ts;
+    update(dt); draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // test hook
+  window.__game = { get state() { return { phase, cur, round, players, ball, hole }; } };
+})();
+</script>
+</body>
+</html>
