@@ -1,0 +1,10 @@
+# One-click server for NFL Live online play: render.com -> New -> Blueprint -> pick this repo.
+services:
+  - type: web
+    name: nfl-live-server
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node server.js
+    plan: free
+    healthCheckPath: /health

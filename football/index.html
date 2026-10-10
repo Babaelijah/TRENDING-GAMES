@@ -60,8 +60,19 @@
   #hint { position:absolute; left:0; right:0; bottom:8.6cqw; text-align:center; font-size:1.5cqw; font-weight:700; text-shadow:0 .1cqw .5cqw #000; pointer-events:none; }
   #rotate { display:none; position:absolute; inset:0; z-index:9; background:#0b1d12; align-items:center; justify-content:center; text-align:center; font-size:5cqw; padding:6cqw; }
   #place { position:absolute; left:2cqw; top:1.6cqw; font-size:1.7cqw; font-weight:700; letter-spacing:.14em; text-shadow:0 .1cqw .6cqw #000; z-index:3; }
+  #online { position:absolute; left:50%; top:1.7cqw; transform:translateX(-50%); background:rgba(8,10,14,.78); border:.12cqw solid rgba(60,200,120,.7); color:#7dffb0; padding:.5cqw 1.6cqw; border-radius:2cqw; font-size:1.4cqw; font-weight:700; letter-spacing:.08em; z-index:3; white-space:nowrap; }
+  #menuOnline { color:#7dffb0; font-weight:700; letter-spacing:.1em; font-size:1.6cqw; }
+  #chat { position:absolute; left:2cqw; bottom:2.4cqw; width:34cqw; z-index:4; }
+  #chatLog { font-size:1.4cqw; line-height:1.4; text-shadow:0 .1cqw .4cqw #000; margin-bottom:.5cqw; max-height:12cqw; overflow:hidden; }
+  #chatLog div { background:rgba(8,10,14,.55); padding:.15cqw .7cqw; border-radius:.5cqw; margin-top:.2cqw; width:fit-content; max-width:100%; }
+  #chatLog b { color:#ffd400; }
+  #chatIn { width:100%; font:inherit; font-size:1.5cqw; padding:.6cqw 1cqw; border-radius:.8cqw; border:.12cqw solid rgba(255,255,255,.35); background:rgba(8,10,14,.75); color:#fff; user-select:text; -webkit-user-select:text; }
+  #stage.talking #chat { display:none; }
+  #emotes { position:absolute; right:2cqw; top:6.6cqw; display:flex; flex-direction:column; gap:.6cqw; z-index:4; }
+  #emotes button { font-size:2.4cqw; background:rgba(8,10,14,.7); border:.12cqw solid rgba(255,255,255,.3); border-radius:50%; width:4.6cqw; height:4.6cqw; padding:0; }
+  #stage.talking #emotes { display:none; }
   #skip { position:absolute; right:2cqw; top:1.6cqw; background:rgba(8,10,14,.75); padding:.7cqw 1.6cqw; border-radius:.8cqw; font-size:1.5cqw; border:.12cqw solid rgba(255,255,255,.4); z-index:3; }
-  #joy { position:absolute; left:3cqw; bottom:4cqw; width:14cqw; height:14cqw; border-radius:50%; background:rgba(255,255,255,.1); border:.25cqw solid rgba(255,255,255,.35); touch-action:none; z-index:3; }
+  #joy { position:absolute; left:3cqw; bottom:12cqw; width:14cqw; height:14cqw; border-radius:50%; background:rgba(255,255,255,.1); border:.25cqw solid rgba(255,255,255,.35); touch-action:none; z-index:3; }
   #knob { position:absolute; left:50%; top:50%; width:6cqw; height:6cqw; border-radius:50%; background:rgba(255,255,255,.55); transform:translate(-50%,-50%); }
   #act { position:absolute; right:3cqw; bottom:5cqw; min-width:11cqw; height:7cqw; padding:0 2cqw; border-radius:3.5cqw; background:#ffd400; color:#1a1405; font-size:2cqw; border:.3cqw solid #fff; z-index:3; }
   @media (pointer:fine) { #joy { display:none; } }
@@ -97,6 +108,9 @@
 
   <div id="banner"></div>
   <div id="place" class="hidden"></div>
+  <div id="online" class="hidden"></div>
+  <div id="chat" class="hidden"><div id="chatLog"></div><input id="chatIn" maxlength="120" placeholder="Press T to chat..." autocomplete="off"></div>
+  <div id="emotes" class="hidden"><button data-e="wave">👋</button><button data-e="fire">🔥</button><button data-e="flex">💪</button><button data-e="clap">👏</button><button data-e="gg">🤝</button></div>
   <button id="skip" class="hidden">SKIP &#9654;</button>
   <div id="wui" class="hidden"><div id="joy"><div id="knob"></div></div><button id="act" class="hidden">ACT</button></div>
   <div id="card" class="hidden"><div class="cardIn">
@@ -130,6 +144,7 @@
       <button class="opt sel" data-diff="pro">PRO</button>
       <button class="opt" data-diff="allpro">ALL-PRO</button>
     </div>
+    <div id="menuOnline" class="hidden"></div>
     <button class="opt sel" id="walkBtn">WALKABLE STADIUM: ON</button>
     <button id="start" class="big">ENTER THE STADIUM</button>
     <p style="font-size:1.3cqw;opacity:.6">Hold your finger or mouse where you want to run &middot; JUKE to dodge &middot; Tap a numbered receiver to throw</p>
@@ -1231,11 +1246,13 @@ function loadScene(id, spawn) {
   WD.x = sp.x; WD.y = sp.y; WD.face = sp.face || 1; WD.vx = WD.vy = 0; WD.dest = null; WD.pending = null; WD.tv = null;
   WD.cam.x = clamp(WD.x - W / 2, 0, Math.max(0, WD.S.w - W)); WD.cam.y = clamp(WD.y - H * 0.68, 0, Math.max(0, WD.S.h - H));
   $('place').textContent = WD.S.name;
+  if (NET.ok) netSend({ t: 'scene', sc: id, x: WD.x, y: WD.y });
   if (crowdGain && ac) { try { crowdGain.gain.setTargetAtTime(id === 'tunnel' ? 0.05 : id === 'press' ? 0.03 : 0.012, ac.currentTime, 0.3); } catch (e) {} }
 }
 function goScene(id, spawn) { if (WD.go) return; WD.go = () => loadScene(id, spawn); }
 function enterWorld(id, mode, after, spawn) {
   G.afterWorld = after; WD.mode = mode; G.phase = 'world'; WD.t = 0;
+  if (SERVER_URL) netConnect();
   ['call', 'fourth', 'kick', 'btns', 'drive', 'menu', 'end'].forEach(k => show($(k), false));
   show($('wui'), true); show($('place'), true); show($('skip'), true);
   if (mode === 'half') { G.buff.protect = G.buff.fresh = G.buff.pocket = G.buff.hurry = false; }
@@ -1246,13 +1263,13 @@ function enterWorld(id, mode, after, spawn) {
 }
 function leaveWorld() {
   if (WD.go) return;
-  WD.go = () => { show($('wui'), false); show($('place'), false); show($('skip'), false); closeDlg(); WD.tv = null; G.phase = 'wait'; WD.S = null; const f = G.afterWorld; G.afterWorld = null; f && f(); };
+  WD.go = () => { netClose(); show($('wui'), false); show($('place'), false); show($('skip'), false); closeDlg(); WD.tv = null; G.phase = 'wait'; WD.S = null; const f = G.afterWorld; G.afterWorld = null; f && f(); };
 }
 function runOut() {
   if (WD.go) return; sfx.td && roar(0.14, 2600);
   const mode = WD.mode;
   WD.go = () => {
-    show($('wui'), false); show($('place'), false); show($('skip'), false); closeDlg(); G.phase = 'wait'; WD.S = null; const f = G.afterWorld; G.afterWorld = null;
+    netClose(); show($('wui'), false); show($('place'), false); show($('skip'), false); closeDlg(); G.phase = 'wait'; WD.S = null; const f = G.afterWorld; G.afterWorld = null;
     const go = () => { banner(mode === 'half' ? 'SECOND HALF' : 'RUN IT OUT!', '#ffd400', 1600); f && f(); };
     if (mode === 'pre') startIntro(go); else go();
   };
@@ -1358,7 +1375,7 @@ function worldPointer(e) {
 }
 function circRect(x, y, r, b) { const nx = clamp(x, b.x, b.x + b.w), ny = clamp(y, b.y, b.y + b.h); return Math.hypot(x - nx, y - ny) < r; }
 function updateWorld(dt) {
-  const S = WD.S; if (!S) return; WD.t += dt; G.t += dt;
+  const S = WD.S; if (!S) return; WD.t += dt; G.t += dt; netTick(dt);
   if (WD.go) { WD.fade = Math.min(1, WD.fade + dt * 2.8); if (WD.fade >= 1) { const g = WD.go; WD.go = null; g(); } }
   else if (WD.fade > 0) WD.fade = Math.max(0, WD.fade - dt * 2.2);
   if (!S) return;
@@ -1412,7 +1429,8 @@ function drawWorld() {
   const items = [];
   S.props.forEach(p => items.push({ y: p.y + p.h, d: () => p.draw(ctx) }));
   S.npcs.forEach(n => items.push({ y: n.y, d: () => drawNPC(n) }));
-  items.push({ y: WD.y, d: drawMe });
+  NET.others.forEach(o => items.push({ y: o.y, d: () => drawOther(o) }));
+  items.push({ y: WD.y, d: () => { drawMe(); drawMyTag(); } });
   items.sort((a, b) => a.y - b.y).forEach(i => i.d());
   // interact prompt
   if (WD.near && !WD.dlg && !WD.tv) {
@@ -1520,6 +1538,95 @@ function drawIntro() {
   c.fillStyle = 'rgba(255,255,255,.6)'; c.font = '600 18px Oswald, sans-serif'; c.textAlign = 'right'; c.fillText('TAP TO SKIP', W - 24, 40);
   if (t < 0.18) { c.fillStyle = `rgba(255,255,255,${(0.18 - t) * 4})`; c.fillRect(0, 0, W, H); }
 }
+
+/* ---------------- online: other players in the stadium ---------------- */
+// Put your deployed server here (see server/README.md), e.g. 'wss://nfl-live.onrender.com'
+// You can also test with  ?server=ws://localhost:8787  on the page address.
+const DEFAULT_SERVER = '';
+const SERVER_URL = (new URLSearchParams(location.search).get('server') || DEFAULT_SERVER).replace(/\/$/, '');
+const EMO = { wave: '👋', fire: '🔥', flex: '💪', clap: '👏', gg: '🤝' };
+const NET = { ws: null, id: 0, others: new Map(), online: 0, room: '', bubbles: new Map(), log: [], ok: false, tries: 0, sendT: 0, sig: '', want: false, menuOnline: 0 };
+const meSig = () => [G.me.name, G.me.num, G.me.skin, G.me.hair].join('|');
+function netSend(o) { if (NET.ws && NET.ws.readyState === 1) NET.ws.send(JSON.stringify(o)); }
+function netJoin() { NET.sig = meSig(); netSend({ t: 'join', name: G.me.name, num: G.me.num, skin: G.me.skin, hair: G.me.hair, x: WD.x, y: WD.y, sc: WD.id || 'locker' }); }
+function netConnect() {
+  NET.want = true; if (!SERVER_URL || NET.ws) return;
+  try {
+    const ws = new WebSocket(SERVER_URL); NET.ws = ws;
+    ws.onopen = () => { NET.ok = true; NET.tries = 0; netJoin(); };
+    ws.onmessage = e => { try { netMsg(JSON.parse(e.data)); } catch (_) {} };
+    ws.onclose = () => { NET.ok = false; NET.ws = null; NET.others.clear(); if (NET.want) setTimeout(() => { if (NET.want && !NET.ws) netConnect(); }, Math.min(15000, 1000 * Math.pow(2, NET.tries++))); };
+    ws.onerror = () => {};
+  } catch (_) {}
+}
+function netClose() { NET.want = false; if (NET.ws) { try { NET.ws.close(); } catch (_) {} } NET.ws = null; NET.ok = false; NET.others.clear(); show($('online'), false); show($('chat'), false); show($('emotes'), false); }
+function netMsg(m) {
+  const now = performance.now();
+  if (m.t === 'welcome') { NET.id = m.id; NET.online = m.online; NET.room = m.room; }
+  else if (m.t === 'room') { NET.room = m.room; NET.others.clear(); }
+  else if (m.t === 'snap') {
+    NET.online = m.online; const seen = new Set();
+    m.p.forEach(a => {
+      const id = a[0]; if (id === NET.id) return; seen.add(id);
+      let o = NET.others.get(id); if (!o) { o = { id, x: a[5], y: a[6], at: Math.random() * 6 }; NET.others.set(id, o); }
+      o.name = a[1]; o.num = a[2]; o.skin = a[3]; o.hair = a[4]; o.tx = a[5]; o.ty = a[6]; o.vx = a[7]; o.vy = a[8]; o.face = a[9];
+    });
+    NET.others.forEach((o, id) => { if (!seen.has(id)) NET.others.delete(id); });
+  }
+  else if (m.t === 'leave') NET.others.delete(m.id);
+  else if (m.t === 'chat') { NET.log.push({ id: m.id, name: m.name, text: m.text, at: now }); if (NET.log.length > 40) NET.log.shift(); NET.bubbles.set(m.id, { text: m.text, until: now + 5500 }); renderChat(); }
+  else if (m.t === 'emote') NET.bubbles.set(m.id, { text: EMO[m.e] || '👋', until: now + 2600, big: true });
+}
+function renderChat() {
+  const now = performance.now(), box = $('chatLog'); box.innerHTML = '';
+  NET.log.filter(l => now - l.at < 14000).slice(-6).forEach(l => { const d = document.createElement('div'); const b = document.createElement('b'); b.textContent = l.name + ': '; d.append(b, document.createTextNode(l.text)); box.appendChild(d); });
+}
+function netTick(dt) {
+  if (!NET.ws || !NET.ok) return;
+  NET.sendT += dt;
+  if (meSig() !== NET.sig) netJoin();
+  if (NET.sendT >= 0.1) { NET.sendT = 0; netSend({ t: 'pos', x: Math.round(WD.x), y: Math.round(WD.y), vx: Math.round(WD.vx), vy: Math.round(WD.vy), face: WD.face }); }
+  NET.others.forEach(o => { const k = Math.min(1, dt * 10); o.x += (o.tx - o.x) * k; o.y += (o.ty - o.y) * k; o.at += Math.hypot(o.vx || 0, o.vy || 0) * dt / 190; });
+  const online = $('online'); online.textContent = `● ${NET.online} ONLINE  ·  ${NET.others.size + 1} IN THIS ROOM`; show(online, true); show($('chat'), true); show($('emotes'), true);
+  if (performance.now() % 1000 < 40) renderChat();
+}
+function drawBubble(c, text, x, y, big) {
+  c.font = big ? '40px sans-serif' : '600 17px Oswald, sans-serif'; c.textAlign = 'center';
+  let t = text; if (!big && t.length > 36) t = t.slice(0, 35) + '…';
+  const w = Math.max(big ? 56 : 40, c.measureText(t).width + 22), h = big ? 56 : 30;
+  c.fillStyle = 'rgba(255,255,255,.96)'; rr(c, x - w / 2, y - h, w, h, 14); c.fill();
+  c.beginPath(); c.moveTo(x - 7, y - 2); c.lineTo(x, y + 8); c.lineTo(x + 7, y - 2); c.fill();
+  c.fillStyle = '#111'; c.fillText(t, x, y - (big ? 12 : 9));
+}
+function drawOther(o) {
+  const f = { vx: o.vx || 0, vy: o.vy || 0, t: o.at, face: o.face || 1, num: o.num, skin: o.skin };
+  figure(ctx, o.x, o.y, 1.9, f, TEAMS.me, { helmet: WD.id === 'tunnel', walk: true, hair: o.hair, hairCol: HAIR[o.skin === 0 ? 2 : 0], noNum: WD.id === 'press' });
+  ctx.font = '600 15px Oswald, sans-serif'; ctx.textAlign = 'center'; const nm = String(o.name || ''), w = ctx.measureText(nm).width + 16, y = o.y - 118;
+  ctx.fillStyle = 'rgba(40,120,200,.88)'; rr(ctx, o.x - w / 2, y - 14, w, 22, 11); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillText(nm, o.x, y + 2);
+  const b = NET.bubbles.get(o.id); if (b && b.until > performance.now()) drawBubble(ctx, b.text, o.x, y - 20, b.big);
+}
+function drawMyTag() {
+  const y = WD.y - 118; ctx.font = '600 15px Oswald, sans-serif'; ctx.textAlign = 'center';
+  if (NET.ok) { const w = ctx.measureText(G.me.name).width + 16; ctx.fillStyle = 'rgba(217,172,59,.95)'; rr(ctx, WD.x - w / 2, y - 14, w, 22, 11); ctx.fill(); ctx.fillStyle = '#1a1405'; ctx.fillText(G.me.name, WD.x, y + 2); }
+  const b = NET.bubbles.get(NET.id); if (b && b.until > performance.now()) drawBubble(ctx, b.text, WD.x, y - 20, b.big);
+}
+function sendChat() { const v = $('chatIn').value.trim(); if (v) netSend({ t: 'chat', text: v }); $('chatIn').value = ''; }
+$('chatIn').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { sendChat(); $('chatIn').blur(); } if (e.key === 'Escape') $('chatIn').blur(); });
+$('chatIn').addEventListener('focus', () => { Object.keys(keys).forEach(k => { keys[k] = false; }); });
+document.querySelectorAll('#emotes button').forEach(b => { b.addEventListener('pointerdown', e => { e.stopPropagation(); audio(); netSend({ t: 'emote', e: b.dataset.e }); }); });
+window.addEventListener('keydown', e => {
+  if (G.phase !== 'world' || !NET.ok || WD.dlg || WD.card) return;
+  if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+  const em = { 1: 'wave', 2: 'fire', 3: 'flex', 4: 'clap', 5: 'gg' }[e.key];
+  if (em) netSend({ t: 'emote', e: em });
+  if (e.key === 't' || e.key === 'T') { e.preventDefault(); $('chatIn').focus(); }
+});
+// how many people are online right now (shown on the menu)
+function pollOnline() {
+  if (!SERVER_URL || G.phase !== 'menu') return;
+  fetch(SERVER_URL.replace(/^ws/, 'http') + '/stats').then(r => r.json()).then(s => { NET.menuOnline = s.online; const el = $('menuOnline'); el.textContent = `● ${s.online} ${s.online === 1 ? 'PLAYER' : 'PLAYERS'} ONLINE NOW`; show(el, true); }).catch(() => show($('menuOnline'), false));
+}
+if (SERVER_URL) { pollOnline(); setInterval(pollOnline, 12000); }
 
 /* ---------------- main update ---------------- */
 function update(dt) {
@@ -1926,7 +2033,7 @@ function loop(ts) {
 }
 requestAnimationFrame(loop);
 
-window.__fb = { G, WD, STARS, card, startIntro, enterWorld, goScene, worldAct, coachPre, coachHalf, pressConf, runOut, leaveWorld, snap, selectPlay, throwTo, startGame, buildPlay, stopMeter, doJuke, ptr, keys };
+window.__fb = { G, WD, NET, STARS, card, startIntro, enterWorld, goScene, worldAct, coachPre, coachHalf, pressConf, runOut, leaveWorld, snap, selectPlay, throwTo, startGame, buildPlay, stopMeter, doJuke, ptr, keys };
 })();
 </script>
 </body>

@@ -1,0 +1,9 @@
+{
+  "name": "nfl-live-server",
+  "version": "1.0.0",
+  "description": "Real-time presence, chat and emotes for NFL Live",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "loadtest": "node loadtest.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0" }
+}
