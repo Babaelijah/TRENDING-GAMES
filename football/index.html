@@ -128,7 +128,7 @@
     <div id="teamPrev"><canvas id="teamPrevArt" width="120" height="120"></canvas><div><div id="teamPrevName">CHOOSE A TEAM</div><div id="teamPrevDiv"></div></div></div>
     <div id="teamGrid"></div>
     <div class="row"><button id="teamBack" class="opt">BACK</button><button id="teamRandom" class="opt">RANDOM</button><button id="teamNext" class="big" style="font-size:2cqw;padding:.8cqw 3cqw">NEXT</button></div>
-    <p style="font-size:1.05cqw;opacity:.55;max-width:80cqw">Fan-made simulation. Not affiliated with or endorsed by the NFL or any team. Badges are original artwork and every player is fictional.</p>
+    <p style="font-size:1.05cqw;opacity:.55;max-width:80cqw">Fan-made simulation. Not affiliated with or endorsed by the NFL, any team or any player. Names are starters from public depth charts (October 2026) and may differ from today's roster. Ratings, numbers and looks are simulated. Badges are original artwork.</p>
   </div>
   <div id="card" class="hidden"><div class="cardIn">
     <div class="cardL"><canvas id="cardArt" width="260" height="340"></canvas><div id="cardOvr"></div></div>
@@ -208,6 +208,7 @@
 </div></div>
 <div id="rotate">Turn your phone sideways to play</div>
 
+<script src="rosters.js"></script>
 <script>
 (() => {
 'use strict';
@@ -395,13 +396,13 @@ function buildPlay(key) {
   const lx = v => clamp(v, -9, 109);
   const O = (role, x, y, spd, num, name) => mk('off', role, lx(x), y, spd, num, name);
   const ol = [0, 1, 2, 3, 4].map(i => O('OL', x0 - 0.6, YC + (i - 2) * 2.6, 6, OL_NUM[i]));
-  const qb = O('QB', x0 - (gun ? 4.6 : 1.4), YC, 6.4, G.me.num, G.me.name); qb.skin = G.me.skin;
-  const rb = O('RB', x0 - (gun ? 4.6 : 5.2), YC + (gun ? 2.4 : 0), 7.7, 22, 'Dayo Okoye');
-  const te = O('TE', x0 - 0.6, YC + 6.4, 7.5, 85, 'Marcus Keller');
-  const wr1 = O('WR', x0 - 0.8, 8, 8.3, 11, 'Tunde Adeyemi');
-  const wr2 = O('WR', x0 - 0.8, 45.3, 8.3, 84, 'Chris Bello');
-  const wr3 = O('WR', x0 - 1.6, 17.5, 8.1, 17, 'Ryan Nwosu');
-  [[qb, 'me'], [rb, 'dayo'], [wr1, 'tunde'], [wr2, 'chris'], [wr3, 'ryan'], [te, 'marcus']].forEach(([pl, key]) => { const r = STARS[key]; pl.hands = r.hands; pl.jk = r.juke; pl.spd *= 0.8 + 0.0025 * r.spd; pl.star = key; });
+  const qb = O('QB', x0 - (gun ? 4.6 : 1.4), YC, 6.4, STARS.me.num, STARS.me.name);
+  const rb = O('RB', x0 - (gun ? 4.6 : 5.2), YC + (gun ? 2.4 : 0), 7.7, STARS.dayo.num, STARS.dayo.name);
+  const te = O('TE', x0 - 0.6, YC + 6.4, 7.5, STARS.marcus.num, STARS.marcus.name);
+  const wr1 = O('WR', x0 - 0.8, 8, 8.3, STARS.tunde.num, STARS.tunde.name);
+  const wr2 = O('WR', x0 - 0.8, 45.3, 8.3, STARS.chris.num, STARS.chris.name);
+  const wr3 = O('WR', x0 - 1.6, 17.5, 8.1, STARS.ryan.num, STARS.ryan.name);
+  [[qb, 'me'], [rb, 'dayo'], [wr1, 'tunde'], [wr2, 'chris'], [wr3, 'ryan'], [te, 'marcus']].forEach(([pl, key]) => { const r = STARS[key]; pl.skin = r.skin; pl.hands = r.hands; pl.jk = r.juke; pl.spd *= 0.8 + 0.0025 * r.spd; pl.star = key; });
   const off = [...ol, qb, rb, te, wr1, wr2, wr3];
   const Df = (role, x, y, spd, num) => mk('def', role, lx(x), y, spd * dm, num);
   const dl = [-5, -1.7, 1.7, 5].map((o, i) => Df('DL', x0 + 1.0, YC + o, 6.7, DL_NUM[i]));
@@ -909,6 +910,8 @@ function simCpu(startX) {
   const steps = [], skill = D().cpu;
   const push = (text, extra) => steps.push({ text, x, down, toGo: Math.max(1, Math.round(fd - x)), clock: Math.max(0, clock), q, ot, sc: { ...sc }, ...(extra || {}) });
   const names = ['Hale', 'Brooks', 'Vega', 'Ortiz', 'Dunn', 'Cole', 'Reyes', 'Park'];
+  const RC = G.rosterCpu || {}, sn = nm => { if (!nm) return null; const t = String(nm).replace(/ (Jr\.|Sr\.|II|III|IV)$/, '').split(' '); return t.length > 2 && t[t.length - 2] === 'St.' ? 'St. ' + t[t.length - 1] : t[t.length - 1]; };
+  const recvNames = [RC.wr1, RC.wr2, RC.wr3, RC.te, RC.rb].map(sn).filter(Boolean);
   const trailLate = () => q >= 4 && sc.cpu < sc.me;
   for (let guard = 0; guard < 40; guard++) {
     if (clock <= 0) {
@@ -923,7 +926,7 @@ function simCpu(startX) {
       if (fgd <= 52 && !(trailLate() && sc.me - sc.cpu > 3)) {
         clock -= 6;
         const p = clamp(0.98 - (fgd - 20) * 0.014, 0.3, 0.97) * Math.min(1.05, skill);
-        if (Math.random() < p) { sc.cpu += 3; push(`${names[0]} kicks a ${fgd}-yard field goal. It's good!`, { tag: 'score' }); return { steps, end: ot ? 'over' : 'fg', userX: 25 }; }
+        if (Math.random() < p) { sc.cpu += 3; push(`${tcase(TEAMS.cpu.nick)} kick a ${fgd}-yard field goal. It's good!`, { tag: 'score' }); return { steps, end: ot ? 'over' : 'fg', userX: 25 }; }
         push(`Field goal from ${fgd} yards is NO GOOD.`);
         return { steps, end: 'turnover', userX: clamp(100 - x, 20, 98) };
       }
@@ -937,7 +940,7 @@ function simCpu(startX) {
     // a play
     const hurry = trailLate(), pass = Math.random() < (hurry ? 0.85 : 0.55), r = Math.random();
     let yards = 0, text = '', burn = hurry ? 12 : 28, stop = false;
-    const qbn = pick(names); let rn = pick(names); while (rn === qbn) rn = pick(names);
+    const qbn = sn(RC.qb) || pick(names); let rn = recvNames.length ? pick(recvNames) : pick(names); if (rn === qbn) rn = pick(names);
     if (pass) {
       if (r < 0.06) { yards = -Math.round(gauss(6, 2)); text = `${qbn} is sacked for a loss of ${-yards}.`; }
       else if (r < 0.06 + 0.028 / skill) { const spotX = x + Math.round(rand(5, 14)); push(`${qbn}'s pass is INTERCEPTED!`); return { steps, end: 'turnover', userX: clamp(100 - spotX, 3, 97) }; }
@@ -1020,7 +1023,7 @@ function startGame() {
 document.querySelectorAll('#modes .opt').forEach(b => b.onclick = () => { G.mode = b.dataset.mode; document.querySelectorAll('#modes .opt').forEach(x => x.classList.toggle('sel', x === b)); });
 document.querySelectorAll('#diffs .opt').forEach(b => b.onclick = () => { G.diff = b.dataset.diff; document.querySelectorAll('#diffs .opt').forEach(x => x.classList.toggle('sel', x === b)); });
 // choose your team, then your opponent, then play
-function applyTeams(a, b) { applyThemeOnly(a, b); CROW = buildCrowd(); G.teamMe = TEAMS.me.abbr; G.teamCpu = TEAMS.cpu.abbr; }
+function applyTeams(a, b) { applyThemeOnly(a, b); buildStars(TEAMS.me.abbr); G.rosterCpu = rosterFor(TEAMS.cpu.abbr); CROW = buildCrowd(); G.teamMe = TEAMS.me.abbr; G.teamCpu = TEAMS.cpu.abbr; }
 const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 const teamsUI = { step: 1, me: lsGet('nfl_me') || 'KC', cpu: lsGet('nfl_cpu') || '' }, TEAM_BTN = {};
@@ -1094,7 +1097,7 @@ function startTouchdown(p) {
   p.celebrate = true; p.fallen = false; p.vx = p.vy = 0; G.energyT = 1; G.energy = Math.max(G.energy, 0.8); G.zoomT = 1.1; sfx.horn(); buzz([40, 30, 40, 30, 90]); cap('TOUCHDOWN! ' + lastName(p) + ' FINDS THE END ZONE');
   const P = G.play; let n = 0; const mates = [];
   if (P) P.off.forEach(o => { if (o !== p && Math.abs(o.x - p.x) < 40 && n < 8) { mates.push({ p: o, cx: 103.4 + (n % 3) * 1.15, cy: clamp(p.y + (n - 3.5) * 1.5, 3, 50) }); n++; } });
-  G.td = { mates, t: 0, who: p, label: `${p.role} - ${(p.name || 'PLAYER').toUpperCase()}`, nick: p.star ? STARS[p.star].nick : '' };
+  G.td = { mates, t: 0, who: p, label: `${p.role} - ${(p.name || 'PLAYER').toUpperCase()}`, nick: '' };
   sfx.td();
   for (let i = 0; i < 120; i++) G.particles.push({ x: rand(0, W), y: rand(-200, 0), vx: rand(-60, 60), vy: rand(80, 260), life: rand(2, 4), c: pick([TH.p, TH.s, '#fff', '#ffd400']), s: rand(5, 11) });
 }
@@ -1203,8 +1206,8 @@ function addSolid(S, x, y, w, h) { S.solids.push({ x, y, w, h }); }
 
 function buildLocker() {
   const S = { id: 'locker', w: 1760, h: 900, floorTop: 214, name: WD.mode === 'half' ? 'HALFTIME — LOCKER ROOM' : TEAMS.me.name + ' LOCKER ROOM', solids: [], doors: [], npcs: [], props: [], inter: [], bounds: { x1: 56, y1: 250, x2: 1704, y2: 868 } };
-  const names = ['Hale', 'Brooks', 'Vega', 'Ortiz', 'Dunn', 'Cole', 'Reyes', 'Park', 'Nash', 'Boyd', 'Lowe', 'Shaw'];
-  const nums = [62, 66, 64, 71, 75, 91, 54, 33, 21, 99, 44, 12];
+  const names = ['me', 'ty', 'dayo', 'tunde', 'chris', 'ryan', 'marcus'].map(k => surname(STARS[k].name)).concat(['O-LINE', 'D-LINE', 'LINEBACKER', 'CORNER', 'SAFETY']);
+  const nums = ['me', 'ty', 'dayo', 'tunde', 'chris', 'ryan', 'marcus'].map(k => STARS[k].num).concat([65, 92, 54, 24, 31]);
   const mineIdx = 8;
   S.back = c => {
     // floor
@@ -1257,23 +1260,23 @@ function buildLocker() {
     c.fillStyle = '#e9edf2'; rr(c, 1208, 312, 44, 30, 5); c.fill(); c.fillStyle = '#5ec2ff'; c.beginPath(); c.arc(1230, 300, 20, Math.PI, 0); c.fill(); c.fillStyle = TH.p; c.fillRect(1226, 318, 8, 8);
   });
   const mk_ = (name, x, y, o) => { const n = npc(Object.assign({ name, x, y }, o)); S.npcs.push(n); addSolid(S, x - 18, y - 12, 36, 18); return n; };
-  const coach = mk_('Coach Davis', 330, 600, { pal: PAL.coach, skin: 2, hair: 3, face: -1, num: null, noNum: true, hairCol: '#aaa', label: 'Talk' });
-  const ty = mk_('Ty Winslow', 480, 508, { pal: TEAMS.me, skin: 0, hair: 2, num: 12, sit: true, label: 'Talk', hairCol: HAIR[2] });
-  const dayo = mk_('Dayo Okoye', 760, 640, { pal: TEAMS.me, skin: 3, hair: 0, num: 22, face: -1, label: 'Talk', stretch: true });
-  const tunde = mk_('Tunde Adeyemi', 1190, 508, { pal: TEAMS.me, skin: 2, hair: 1, num: 11, sit: true, face: -1, label: 'Talk' });
-  const marcus = mk_('Marcus Keller', 1400, 400, { pal: TEAMS.me, skin: 0, hair: 4, num: 85, face: -1, label: 'Talk' });
-  const chris = mk_('Chris Bello', 1010, 660, { pal: TEAMS.me, skin: 3, hair: 0, num: 84, face: -1, label: 'Meet', hairCol: '#111' });
-  const ryan = mk_('Ryan Nwosu', 610, 508, { pal: TEAMS.me, skin: 1, hair: 1, num: 17, sit: true, label: 'Meet', hairCol: HAIR[1] });
+  const coach = mk_('Head Coach', 330, 600, { pal: PAL.coach, skin: 2, hair: 3, face: -1, num: null, noNum: true, hairCol: '#aaa', label: 'Talk' });
+  const mate = (key, x, y, o) => mk_(STARS[key].name, x, y, Object.assign({ pal: TEAMS.me, skin: STARS[key].skin, hair: STARS[key].hair, hairCol: STARS[key].hairCol, num: STARS[key].num, label: 'Meet' }, o));
+  const ty = mate('ty', 480, 508, { sit: true }), dayo = mate('dayo', 760, 640, { face: -1, stretch: true }), tunde = mate('tunde', 1190, 508, { sit: true, face: -1 });
+  const marcus = mate('marcus', 1400, 400, { face: -1 }), chris = mate('chris', 1010, 660, { face: -1 }), ryan = mate('ryan', 610, 508, { sit: true });
   const sully = mk_('Sully (Equipment)', 1600, 548, { pal: PAL.equip, skin: 1, hair: 4, face: -1, noNum: true, label: 'Talk' });
   const O = (name, x, y, r, label, act) => S.inter.push({ name, x, y, r, label, act });
   S.npcs.forEach(n => { n.r = 90; });
   S.inter.push({ npc: coach, label: 'Talk', act: () => (WD.mode === 'half' ? coachHalf() : coachPre()) });
-  S.inter.push({ npc: ty, label: 'Meet', act: () => card('ty', () => say('Ty Winslow', pick(["Backup QB here. My job is to hold the clipboard and your jersey. Ha. Tap the numbered receiver the second he breaks open.", "Watch the safeties. If they're deep, hit the short stuff and let your guys run after the catch.", "Fourth and short near midfield? Go for it. Coach loves a gutsy call."]))) });
-  S.inter.push({ npc: dayo, label: 'Meet', act: () => card('dayo', () => say('Dayo Okoye', pick(["Hold your finger where the open grass is, then JUKE the second a defender gets close.", "Outside runs need blockers to seal the edge. Be patient, then cut upfield.", "I'm getting my hamstrings ready. Give me the ball on 3rd and short."]))) });
-  S.inter.push({ npc: tunde, label: 'Meet', act: () => card('tunde', () => say('Tunde Adeyemi', pick(["Number 21 can't keep up with me. Deep shot, trust me.", "Man coverage? I'll be wide open. Zone? Find the soft spot.", "Music's on. Don't talk to me till kickoff... okay, one question."]))) });
-  S.inter.push({ npc: marcus, label: 'Meet', act: () => card('marcus', () => say('Marcus Keller', pick(["Seam route's money against cover 2. Look for me over the middle.", "After the catch, I'm a runner. Make sure you break a few tackles and go.", "Whoever gets six first, buys lunch."]))) });
-  S.inter.push({ npc: chris, label: 'Meet', act: () => card('chris', () => say('Chris Bello', pick(['Throw it to me when it is tight. I will bring it down.', 'Slants all day. Trust your first read.', 'Hands are glued. Do not worry.']))) });
-  S.inter.push({ npc: ryan, label: 'Meet', act: () => card('ryan', () => say('Ryan Nwosu', pick(['In the slot, I get a free release. Quick slants, easy yards.', 'Hit me short and I will make somebody miss.', 'I will juke the first guy and the second one too.']))) });
+  const TIPS = {
+    ty: ['Backup quarterback. If the starter goes down, he is next up.', 'Tip: tap the numbered receiver the moment he breaks open.', 'Tip: watch the safeties. If they are deep, hit the short routes.'],
+    dayo: ['Tip: hold your finger on the open grass, then tap JUKE just as a defender closes in.', 'Tip: outside runs need blockers to seal the edge. Be patient, then cut upfield.', 'Tip: on 3rd and short, the running back is your best friend.'],
+    tunde: ['Tip: the top receiver is your deep threat. Try a Deep Shot when the safeties creep up.', 'Tip: against man coverage a fast receiver wins on go routes. Against zone, find the soft spot.'],
+    marcus: ['Tip: tight ends win over the middle. Try the seam route against two-deep zones.', 'Tip: after the catch a tight end can run through arm tackles. Keep your finger on the field.'],
+    chris: ['Tip: a sure-handed receiver is your safest target when the pocket is collapsing.', 'Tip: quick slants beat the blitz because the ball is out fast.'],
+    ryan: ['Tip: slot receivers get a free release. Quick routes make easy yards.', 'Tip: throw short to the slot and let him make the first defender miss.'],
+  };
+  [[ty, 'ty'], [dayo, 'dayo'], [tunde, 'tunde'], [marcus, 'marcus'], [chris, 'chris'], [ryan, 'ryan']].forEach(([n, k]) => S.inter.push({ npc: n, label: 'Meet', act: () => card(k, () => say('SCOUTING REPORT', pick(TIPS[k]))) }));
   S.inter.push({ npc: sully, label: 'Talk', act: () => equipTalk() });
   O('Your locker', 868, 262, 76, 'Open your locker', lockerTalk);
   O('Whiteboard', 210, 702, 90, 'Study the whiteboard', () => say('Whiteboard', pick(['PLAY ACTION beats man coverage: the linebackers bite on the fake.', 'SCREEN PASS: wait for the blockers, then dump it to the back.', 'DEEP SHOT: when the safeties creep up, go over the top.']) ));
@@ -1326,10 +1329,10 @@ function buildTunnel() {
     for (let i = 0; i < 40; i++) { const px = (i * 173 + WD.t * 20 * (1 + (i % 3))) % S.w, py = 220 + (i * 71) % 300; c.fillStyle = 'rgba(255,255,255,.12)'; c.fillRect(px, py + Math.sin(WD.t + i) * 6, 2, 2); }
   };
   addSolid(S, 0, 0, S.w, 260);
-  const names = ['Hale', 'Brooks', 'Vega', 'Ortiz', 'Dunn', 'Cole'];
+  const names = ['dayo', 'tunde', 'chris', 'ryan', 'marcus', 'ty'].map(k => surname(STARS[k].name)), tk = ['dayo', 'tunde', 'chris', 'ryan', 'marcus', 'ty'];
   [[2230, 440, 62], [2330, 540, 64], [2430, 460, 91], [2520, 560, 54], [2620, 450, 21], [2160, 550, 33]].forEach((q, i) => {
-    S.npcs.push(npc({ name: names[i], x: q[0], y: q[1], pal: TEAMS.me, skin: i % 4, num: q[2], helmet: true, face: 1, label: 'Fist bump', r: 70 }));
-    S.inter.push({ npc: S.npcs[S.npcs.length - 1], label: 'Fist bump', act: () => say(names[i], pick(["LET'S GO!", "Hear that crowd? That's for us!", "Stay locked in. Win the first drive.", "Break on three!"])) });
+    S.npcs.push(npc({ name: names[i], x: q[0], y: q[1], pal: TEAMS.me, skin: STARS[tk[i]].skin, num: STARS[tk[i]].num, helmet: true, face: 1, label: 'Fist bump', r: 70 }));
+    S.inter.push({ npc: S.npcs[S.npcs.length - 1], label: 'Fist bump', act: () => { sfx.slap(); say('', pick(['You trade a fist bump with ' + names[i] + '. The energy in the tunnel is electric.', 'A nod and a fist bump from ' + names[i] + '. Game time.', names[i] + ' bumps your fist. The crowd noise rolls in from the field.'])); } });
   });
   [1620, 1900, 2180, 2460, 2740].forEach(cx => S.inter.push({ name: 'Fans', x: cx, y: 300, r: 130, label: 'High five!', act: () => highFive(cx) }));
   S.doors.push({ x: 0, y: 400, w: 66, h: 220, go: () => goScene('locker', { x: 1640, y: 500, face: -1 }) });
@@ -1432,7 +1435,7 @@ function runOut() {
   };
 }
 function halftimeOver() {
-  say('Coach Davis', "That's time! Teams are heading back out. Let's go!", () => runOut());
+  say('Head Coach', "That's time! Teams are heading back out. Let's go!", () => runOut());
 }
 $('skip').onclick = () => { audio(); if (WD.id === 'press') { closeDlg(); leaveWorld(); } else runOut(); };
 
@@ -1440,29 +1443,29 @@ $('skip').onclick = () => { audio(); if (WD.id === 'press') { closeDlg(); leaveW
 function planName() { return { air: 'AIR RAID', ground: 'GROUND & POUND', bal: 'BALANCED' }[G.plan] || 'not set'; }
 function setPlan(p, line) {
   G.plan = p; G.buff.air = p === 'air'; G.buff.ground = p === 'ground'; G.buff.bal = p === 'bal';
-  say('Coach Davis', line, () => { say('Coach Davis', `Game plan locked in: ${planName()}. When you're ready, hit the tunnel. It's the door on the right.`); });
+  say('Head Coach', line, () => { say('Head Coach', `Game plan locked in: ${planName()}. When you're ready, hit the tunnel. It's the door on the right.`); });
 }
 function coachPre(auto) {
   const nm = G.me.name.split(' ')[0];
-  const go = () => choose('Coach Davis', G.plan ? `Current plan: ${planName()}. Want to change it?` : `Pick our game plan, ${nm}. How do we beat the ${tcase(TEAMS.cpu.nick)}?`, [
+  const go = () => choose('Head Coach', G.plan ? `Current plan: ${planName()}. Want to change it?` : `Pick our game plan, ${nm}. How do we beat the ${tcase(TEAMS.cpu.nick)}?`, [
     { label: 'AIR RAID: throw it all over the yard', go: () => setPlan('air', 'I like it. Your arm, their secondary. Completions come easier today, but run plays will be tougher.') },
     { label: 'GROUND & POUND: run it down their throats', go: () => setPlan('ground', 'Old school. Your runners break more tackles. The pocket will be shorter on pass plays, though.') },
     { label: 'BALANCED: keep them guessing', go: () => setPlan('bal', 'Smart. A little help everywhere. Keep them off balance.') },
     { label: 'Not yet', go: () => {} },
   ]);
-  if (auto && !G.plan) sayAll([['Coach Davis', `${nm}! Gather round. The ${tcase(TEAMS.cpu.nick)}' front four never quit, and their corners are fast.`], ['Coach Davis', 'Walk the room. Talk to your guys, check your locker, get taped up, then see me for the plan.']], go);
+  if (auto && !G.plan) sayAll([['Head Coach', `${nm}! Gather round. The ${tcase(TEAMS.cpu.nick)}' front four never quit, and their corners are fast.`], ['Head Coach', 'Walk the room. Talk to your guys, check your locker, get taped up, then see me for the plan.']], go);
   else go();
 }
 function coachHalf(auto) {
   const a = G.score.me, b = G.score.cpu, state = a > b ? `We're up ${a}-${b}` : a < b ? `We're down ${a}-${b}` : `All tied up, ${a}-${b}`;
-  const opt = (label, key, line) => ({ label, go: () => { G.buff[key] = true; say('Coach Davis', line, () => say('Coach Davis', 'Grab some water, watch the show on the TV. When you are ready, hit the tunnel.')); } });
-  const go = () => choose('Coach Davis', `${state}. What do you need in the second half?`, [
+  const opt = (label, key, line) => ({ label, go: () => { G.buff[key] = true; say('Head Coach', line, () => say('Head Coach', 'Grab some water, watch the show on the TV. When you are ready, hit the tunnel.')); } });
+  const go = () => choose('Head Coach', `${state}. What do you need in the second half?`, [
     opt('PROTECT THE BALL: fewer picks and fumbles', 'protect', 'Take care of it. No gifts to them.'),
     opt('FRESH LEGS: a little extra speed', 'fresh', 'I put some juice in your legs. Run.'),
     opt('MORE TIME: the line holds longer', 'pocket', 'Big guys up front hold the pocket longer. Make them pay.'),
     opt('HURRY-UP: burn less clock per play', 'hurry', 'Tempo it is. Don\'t waste a second.'),
   ]);
-  if (auto) sayAll([['Coach Davis', `Alright, listen up. ${state}.`], ['Coach Davis', 'Halftime is for fixing things. Pick ONE adjustment and we go win the half.']], go); else go();
+  if (auto) sayAll([['Head Coach', `Alright, listen up. ${state}.`], ['Head Coach', 'Halftime is for fixing things. Pick ONE adjustment and we go win the half.']], go); else go();
 }
 function lockerTalk() {
   choose('Your Locker', `${G.me.name.toUpperCase()}  #${G.me.num}. Make it yours.`, [
@@ -1496,7 +1499,7 @@ function pressConf() {
   };
   Q(`${me}, ${won ? 'a big win tonight. What was the difference?' : tie ? 'a tie game. How do you feel?' : 'tough one tonight. What went wrong?'}`, [
     ['We stayed together.', 1, won ? 'We stayed together. Everybody did their job.' : 'We stayed together. We will fix it.'],
-    ['Honestly, the coaches got us ready.', 1, 'Credit to Coach Davis and the staff. They had us ready.'],
+    ['Honestly, the coaches got us ready.', 1, 'Credit to Head Coach and the staff. They had us ready.'],
     ['I just wanted it more.', 2, 'I just wanted it more. Nobody was taking this from us.'],
   ], q2);
 }
@@ -1615,18 +1618,35 @@ function drawWorld() {
 }
 
 /* ---------------- the stars ---------------- */
-const STARS = {
-  me:     { name: null, pos: 'QUARTERBACK', short: 'QB', nick: 'THE ARCHITECT', town: 'Bay City', ovr: 88, spd: 78, hands: 70, juke: 76, pow: 72, skin: null, hair: null, hairCol: null, intro: 'At quarterback', bio: 'Arm like a cannon, brain like a coach. The offense runs through you.', sig: 'DEEP BOMB: puts it on a dime', quote: 'Give me one more drive.' },
-  tunde:  { name: 'Tunde Adeyemi', num: 11, pos: 'WIDE RECEIVER', short: 'WR', nick: 'THE JET', town: 'Lagos, Nigeria', ovr: 93, spd: 96, hands: 90, juke: 88, pow: 66, skin: 2, hair: 1, hairCol: '#24160f', intro: 'At wide receiver', bio: 'Fastest man on the roster. Nobody has ever caught him from behind.', sig: 'GO ROUTE: burns his man deep', quote: 'Throw it high. I will find it.' },
-  chris:  { name: 'Chris Bello', num: 84, pos: 'WIDE RECEIVER', short: 'WR', nick: 'GLUE HANDS', town: 'Houston, Texas', ovr: 89, spd: 88, hands: 97, juke: 80, pow: 70, skin: 3, hair: 0, hairCol: '#111', intro: 'At wide receiver', bio: 'If the ball touches his hands, it stays there. Period.', sig: 'SLANT: catches in traffic', quote: 'Contested? I call that dinner.' },
-  ryan:   { name: 'Ryan Nwosu', num: 17, pos: 'SLOT RECEIVER', short: 'WR', nick: 'THE SLOT MACHINE', town: 'Atlanta, Georgia', ovr: 86, spd: 90, hands: 88, juke: 93, pow: 62, skin: 1, hair: 1, hairCol: '#5a3d2b', intro: 'At the slot', bio: 'Shifty in the open field. Defenders leave with ankle regrets.', sig: 'STUTTER STEP: leaves them guessing', quote: 'You blinked. I was gone.' },
-  marcus: { name: 'Marcus Keller', num: 85, pos: 'TIGHT END', short: 'TE', nick: 'BIG GAME', town: 'Kansas City, Missouri', ovr: 90, spd: 80, hands: 91, juke: 78, pow: 93, skin: 0, hair: 4, hairCol: '#c9a34a', intro: 'At tight end', bio: 'Catches it over the middle and drags three defenders for ten more.', sig: 'SEAM ROUTE: down the middle', quote: 'Run me over? Try it.' },
-  dayo:   { name: 'Dayo Okoye', num: 22, pos: 'RUNNING BACK', short: 'RB', nick: 'THE BULLDOZER', town: 'Oakland, California', ovr: 91, spd: 90, hands: 74, juke: 93, pow: 84, skin: 3, hair: 0, hairCol: '#111', intro: 'At running back', bio: 'Runs through arm tackles like they are cobwebs. Spin move is a weapon.', sig: 'SPIN MOVE: shakes the first tackler', quote: 'Just give me the rock.' },
-  ty:     { name: 'Ty Winslow', num: 12, pos: 'BACKUP QB', short: 'QB', nick: 'CLIPBOARD', town: 'Boise, Idaho', ovr: 74, spd: 70, hands: 60, juke: 65, pow: 60, skin: 0, hair: 2, hairCol: '#c9a34a', bio: 'Always ready. Always smiling. Holds the clipboard like a trophy.', sig: 'SIDELINE WISDOM', quote: 'Ready when you need me.' },
+/* ---------------- the players on the field ---------------- */
+// Names come from rosters.js. Ratings, jersey numbers and looks are simulation values, not real-world facts.
+const SLOT = { me: 'qb', ty: 'qb2', dayo: 'rb', tunde: 'wr1', chris: 'wr2', ryan: 'wr3', marcus: 'te' };
+const STAR_BASE = {
+  me:     { pos: 'QUARTERBACK', short: 'QB', intro: 'At quarterback', ovr: 86, spd: 76, hands: 70, juke: 74, pow: 72, bio: 'Runs the offense and makes the throws.', sig: 'READS THE DEFENSE' },
+  tunde:  { pos: 'WIDE RECEIVER', short: 'WR', intro: 'At wide receiver', ovr: 88, spd: 92, hands: 88, juke: 86, pow: 66, bio: "The offense's top target. Built to stretch the field.", sig: 'GO ROUTE' },
+  chris:  { pos: 'WIDE RECEIVER', short: 'WR', intro: 'At wide receiver', ovr: 86, spd: 88, hands: 90, juke: 82, pow: 68, bio: 'A dependable target who wins in traffic.', sig: 'SLANT' },
+  ryan:   { pos: 'SLOT RECEIVER', short: 'WR', intro: 'At the slot', ovr: 84, spd: 90, hands: 86, juke: 90, pow: 62, bio: 'Quick in the open field and tough to cover.', sig: 'QUICK RELEASE' },
+  marcus: { pos: 'TIGHT END', short: 'TE', intro: 'At tight end', ovr: 85, spd: 80, hands: 86, juke: 76, pow: 90, bio: 'Catches over the middle and blocks the edge.', sig: 'SEAM ROUTE' },
+  dayo:   { pos: 'RUNNING BACK', short: 'RB', intro: 'At running back', ovr: 87, spd: 90, hands: 74, juke: 90, pow: 82, bio: 'Hits the hole hard and breaks tackles.', sig: 'SPIN MOVE' },
+  ty:     { pos: 'BACKUP QB', short: 'QB', intro: 'At backup quarterback', ovr: 72, spd: 70, hands: 60, juke: 65, pow: 60, bio: 'Next up if the starter goes down.', sig: 'SIDELINE READY' },
 };
-STARS.me.name = G.me.name; // refreshed when the card opens
+const STARS = {};
+const hash32 = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+function rosterFor(abbr) { return (typeof ROSTERS !== 'undefined' && ROSTERS[abbr]) || {}; }
+function buildStars(abbr) {
+  const r = rosterFor(abbr), taken = new Set(), RANGE = { qb: [3, 19], qb2: [3, 19], rb: [20, 39], wr1: [10, 19], wr2: [80, 89], wr3: [10, 19], te: [80, 89] };
+  Object.keys(STAR_BASE).forEach(k => {
+    const slot = SLOT[k], real = r[slot], name = real || (abbr + ' ' + slot.replace(/\d/, '').toUpperCase());
+    const h = hash32(abbr + slot), R = RANGE[slot]; let n = R[0] + hash32(name) % (R[1] - R[0] + 1);
+    while (taken.has(n)) n = n === R[1] ? R[0] : n + 1; taken.add(n);
+    const b = STAR_BASE[k], d = sh => ((h >>> sh) % 7) - 3;
+    STARS[k] = Object.assign({}, b, { name, num: n, real: !!real, ovr: b.ovr + d(2), spd: b.spd + d(5), hands: b.hands + d(8), juke: b.juke + d(11), pow: b.pow + d(14), skin: h % 4, hair: [0, 1, 2, 4][(h >>> 3) % 4], hairCol: HAIR[(h >>> 6) % 4] });
+  });
+}
+buildStars(TEAMS.me.abbr);
 const rate = (v, lo = 60, hi = 99) => clamp((v - lo) / (hi - lo), 0.05, 1);
-function starOf(k) { const s = STARS[k]; if (k === 'me') { s.town = tcase(TEAMS.me.short); s.name = G.me.name; s.num = G.me.num; s.skin = G.me.skin; s.hair = G.me.hair; s.hairCol = HAIR[G.me.skin === 0 ? 2 : 0]; } return s; }
+function starOf(k) { return STARS[k]; }
+const surname = nm => { const t = String(nm || '').replace(/ (Jr\.|Sr\.|II|III|IV)$/, '').split(' '); return t.length > 2 && t[t.length - 2] === 'St.' ? 'St. ' + t[t.length - 1] : t[t.length - 1]; };
 
 function drawStarArt(c, k, w, h, helmet) {
   const s = starOf(k);
@@ -1639,10 +1659,10 @@ const cardState = { then: null };
 function card(k, then) {
   const s = starOf(k); cardState.then = then;
   drawStarArt($('cardArt').getContext('2d'), k, 260, 340, false);
-  $('cardPos').textContent = `${s.pos}  #${s.num}`; $('cardName').textContent = s.name.toUpperCase(); $('cardNick').textContent = '“' + s.nick + '”  ·  ' + s.town;
+  $('cardPos').textContent = s.pos; $('cardName').textContent = s.name.toUpperCase(); $('cardNick').textContent = TEAMS.me.name + '  ·  STARTER';
   $('cardOvr').textContent = s.ovr;
   $('cardBars').innerHTML = [['SPEED', s.spd], ['HANDS', s.hands], ['JUKE', s.juke], ['POWER', s.pow]].map(b => `<div class="bar"><span>${b[0]}</span><i><b style="width:${Math.round(rate(b[1]) * 100)}%"></b></i><em>${b[1]}</em></div>`).join('');
-  $('cardBio').textContent = s.bio; $('cardSig').textContent = 'SIGNATURE: ' + s.sig;
+  $('cardBio').textContent = s.bio + ' Simulation ratings, not real stats.'; $('cardSig').textContent = 'STYLE: ' + s.sig;
   $('cardChat').classList.toggle('hidden', !then);
   show($('card'), true); WD.card = true;
 }
@@ -1667,7 +1687,7 @@ function drawIntro() {
   for (let i = 0; i < 6; i++) { const a = G.t * 0.5 + i * 1.05, gx = W * 0.3 + Math.cos(a) * 200; const g = c.createLinearGradient(gx, 0, gx + Math.sin(a) * 300, H); g.addColorStop(0, 'rgba(255,230,180,.22)'); g.addColorStop(1, 'rgba(255,230,180,0)'); c.fillStyle = g; c.beginPath(); c.moveTo(gx - 20, 0); c.lineTo(gx + 20, 0); c.lineTo(gx + Math.sin(a) * 500 + 160, H); c.lineTo(gx + Math.sin(a) * 500 - 160, H); c.fill(); }
   c.globalCompositeOperation = 'source-over';
   // giant outlined number
-  c.save(); c.globalAlpha = 0.9 * e; c.font = '900 520px Oswald, Impact, sans-serif'; c.textAlign = 'center'; c.lineWidth = 6; c.strokeStyle = 'rgba(255,255,255,.25)'; c.strokeText(s.num, 880 + (1 - e) * 200, 520); c.restore();
+  c.save(); c.globalAlpha = 0.9 * e; c.font = '900 380px Oswald, Impact, sans-serif'; c.textAlign = 'center'; c.lineWidth = 6; c.strokeStyle = 'rgba(255,255,255,.25)'; c.strokeText(TEAMS.me.abbr, 880 + (1 - e) * 200, 520); c.restore();
   // portrait
   c.save(); c.translate(-(1 - e) * 380, 0);
   const pg = c.createRadialGradient(330, 380, 20, 330, 380, 360); pg.addColorStop(0, rgbaC(TH.p, 0.55)); pg.addColorStop(1, rgbaC(TH.p, 0)); c.fillStyle = pg; c.fillRect(0, 0, 700, H);
@@ -1679,7 +1699,7 @@ function drawIntro() {
   c.fillStyle = '#fff'; c.font = 'italic 800 88px Oswald, Impact, sans-serif'; c.lineJoin = 'round'; c.lineWidth = 10; c.strokeStyle = TH.pd;
   const parts = s.name.toUpperCase().split(' '); parts.forEach((p, i) => { c.strokeText(p, 640, 240 + i * 84); c.fillText(p, 640, 240 + i * 84); });
   const ny = 240 + (parts.length - 1) * 84 + 54;
-  c.fillStyle = '#ffd400'; c.font = 'italic 700 36px Oswald, sans-serif'; c.fillText('“' + s.nick + '”', 640, ny);
+  c.fillStyle = '#ffd400'; c.font = 'italic 700 36px Oswald, sans-serif'; c.fillText(s.pos, 640, ny);
   const bx = 640, by = ny + 22;
   [['SPD', s.spd], ['HANDS', s.hands], ['JUKE', s.juke], ['POWER', s.pow]].forEach((b, i) => {
     const y = by + i * 31; c.fillStyle = '#fff'; c.font = '700 21px Oswald, sans-serif'; c.fillText(b[0], bx, y + 20);
@@ -1690,8 +1710,8 @@ function drawIntro() {
   c.restore();
   // lower third
   c.fillStyle = 'rgba(8,10,14,.92)'; c.beginPath(); c.moveTo(0, 640); c.lineTo(W - 60, 640); c.lineTo(W - 90, 700); c.lineTo(0, 700); c.fill(); c.fillStyle = TH.p; c.fillRect(0, 694, W - 90, 6);
-  drawLogo(c, 'me', 52, 670, 52); c.fillStyle = '#fff'; c.font = '700 32px Oswald, sans-serif'; c.textAlign = 'left'; c.fillText(s.short + '  #' + s.num + '  ' + s.name.toUpperCase(), 100, 681);
-  c.fillStyle = TH.s; c.font = '500 22px Oswald, sans-serif'; c.textAlign = 'right'; c.fillText(s.town.toUpperCase() + '  ·  OVR ' + s.ovr, W - 120, 679);
+  drawLogo(c, 'me', 52, 670, 52); c.fillStyle = '#fff'; c.font = '700 32px Oswald, sans-serif'; c.textAlign = 'left'; c.fillText(s.short + '  ' + s.name.toUpperCase(), 100, 681);
+  c.fillStyle = TH.s; c.font = '500 22px Oswald, sans-serif'; c.textAlign = 'right'; c.fillText(TEAMS.me.name + '  ·  SIM OVR ' + s.ovr, W - 120, 679);
   c.fillStyle = 'rgba(255,255,255,.7)'; c.font = '700 24px Oswald, sans-serif'; c.textAlign = 'left'; c.fillText('STARTING LINEUP', 28, 44);
   for (let i = 0; i < I.order.length; i++) { c.fillStyle = i <= I.i ? '#ffd400' : 'rgba(255,255,255,.25)'; c.fillRect(28 + i * 34, 56, 26, 5); }
   c.fillStyle = 'rgba(255,255,255,.6)'; c.font = '600 18px Oswald, sans-serif'; c.textAlign = 'right'; c.fillText('TAP TO SKIP', W - 24, 40);
@@ -2307,7 +2327,7 @@ function drawTD() {
   ctx.fillStyle = 'rgba(8,10,14,.94)'; ctx.beginPath(); ctx.moveTo(bx + 20, by); ctx.lineTo(bx + bw, by); ctx.lineTo(bx + bw - 24, by + 58); ctx.lineTo(bx, by + 58); ctx.closePath(); ctx.fill();
   ctx.fillStyle = TH.p; ctx.fillRect(bx, by + 52, bw - 24, 6);
   ctx.fillStyle = TH.s; ctx.beginPath(); ctx.arc(bx + 38, by + 29, 22, 0, 7); ctx.fill();
-  ctx.fillStyle = '#1a1405'; ctx.font = '800 24px Oswald, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(t.who.num, bx + 38, by + 38);
+  ctx.fillStyle = '#1a1405'; ctx.font = '800 19px Oswald, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(t.who.role, bx + 38, by + 35);
   ctx.fillStyle = '#fff'; ctx.font = '700 32px Oswald, Impact, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(t.label, bx + 76, by + 40);
   if (t.nick) { ctx.fillStyle = '#ffd400'; ctx.font = 'italic 600 22px Oswald, sans-serif'; ctx.textAlign = 'right'; ctx.fillText('“' + t.nick + '”', bx + bw - 46, by + 38); }
   ctx.globalAlpha = 1;
