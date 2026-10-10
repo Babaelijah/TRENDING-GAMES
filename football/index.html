@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Gridiron Live</title>
+<title>NFL Live</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
 <meta name="theme-color" content="#0b1d12">
@@ -72,7 +72,7 @@
   <div id="hint"></div>
 
   <div id="menu" class="overlay">
-    <h1>GRIDIRON <span>LIVE</span></h1>
+    <h1>NFL <span>LIVE</span></h1>
     <p>Call the play. Throw it. Then run it in yourself.</p>
     <div class="row" id="modes">
       <button class="opt sel" data-mode="full">FULL GAME</button>
@@ -850,8 +850,8 @@ document.querySelectorAll('#diffs .opt').forEach(b => b.onclick = () => { G.diff
 $('start').onclick = startGame;
 $('again').onclick = () => { show($('end'), false); show($('menu'), true); G.phase = 'menu'; G.play = null; };
 $('share').onclick = async () => {
-  const text = `I played Gridiron Live: ${TEAMS.me.abbr} ${G.score.me} - ${TEAMS.cpu.abbr} ${G.score.cpu}. Can you beat it?`;
-  try { if (navigator.share) await navigator.share({ title: 'Gridiron Live', text, url: location.href }); else { await navigator.clipboard.writeText(text + ' ' + location.href); $('share').textContent = 'COPIED!'; } } catch (e) {}
+  const text = `I played NFL Live: ${TEAMS.me.abbr} ${G.score.me} - ${TEAMS.cpu.abbr} ${G.score.cpu}. Can you beat it?`;
+  try { if (navigator.share) await navigator.share({ title: 'NFL Live', text, url: location.href }); else { await navigator.clipboard.writeText(text + ' ' + location.href); $('share').textContent = 'COPIED!'; } } catch (e) {}
 };
 const PL = $('plays');
 const DIA = {
@@ -995,7 +995,7 @@ function drawField() {
     for (let i = 0; i < 46; i++) { ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.9})`; ctx.fillRect(Math.random() * W, Math.random() * (CROWD_H - 6), 2 + Math.random() * 2, 2 + Math.random() * 2); }
   }
   // LED ad boards
-  const ads = [['GRIDIRON LIVE', '#14141c', '#ffd400'], ['BAY CITY GOLD', '#8f0b21', '#d9ac3b'], ['SUMMIT STALLIONS', '#0d2b5e', '#ff9a3a'], ['PLAY THE GAME', '#14141c', '#ffffff']];
+  const ads = [['NFL LIVE', '#14141c', '#ffd400'], ['BAY CITY GOLD', '#8f0b21', '#d9ac3b'], ['SUMMIT STALLIONS', '#0d2b5e', '#ff9a3a'], ['PLAY THE GAME', '#14141c', '#ffffff']];
   const bw = 400, bo = -(G.cam * PX) % (bw * ads.length), by = FIELD_TOP - 34;
   for (let i = -1; i <= 4; i++) {
     const a = ads[((i % ads.length) + ads.length) % ads.length], x = bo + i * bw;
@@ -1203,7 +1203,7 @@ function drawScorebug() {
   glass(14, 12, 150, 50, 'rgba(30,30,40,.92)', 'rgba(8,8,12,.92)');
   ctx.fillStyle = '#fff'; ctx.font = '600 17px Oswald, Impact, sans-serif'; ctx.textAlign = 'left';
   ctx.fillText('RVR  24', 26, 33); ctx.fillText('MTN  20', 26, 52); ctx.fillStyle = '#9aa0ad'; ctx.font = '500 11px Oswald, sans-serif'; ctx.fillText('FINAL', 110, 52);
-  ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = 'italic 700 20px Oswald, Impact, sans-serif'; ctx.textAlign = 'right'; ctx.fillText('GRIDIRON LIVE', W - 20, 34);
+  ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = 'italic 700 20px Oswald, Impact, sans-serif'; ctx.textAlign = 'right'; ctx.fillText('NFL LIVE', W - 20, 34);
   // main bar
   ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 18; ctx.fillStyle = '#000'; rr(ctx, L, y, 660, h, 6); ctx.fill(); ctx.shadowBlur = 0;
   glass(L, y, 250, h, '#1a4290', '#071a3a', 6); glass(cx - 80, y, 160, h, '#2a2a33', '#0c0c10', 0); glass(cx + 80, y, 250, h, '#c8102e', '#5e0716', 6);
@@ -1214,7 +1214,7 @@ function drawScorebug() {
   ctx.font = '700 44px Oswald, Impact, sans-serif'; ctx.fillText(G.score.cpu, L + 236, y + 43); ctx.textAlign = 'left'; ctx.fillText(G.score.me, cx + 96, y + 43);
   const pm = G.poss === 'cpu' ? L + 118 : Rr - 118; ctx.fillStyle = '#ffd400'; ctx.beginPath(); ctx.ellipse(pm, y + 27, 8, 4.6, -0.3, 0, 7); ctx.fill();
   ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = '700 23px Oswald, Impact, sans-serif';
-  ctx.fillText(G.phase === 'menu' ? 'GRIDIRON' : (G.poss === 'me' || G.phase === 'cpu' ? downText() : ''), cx, y + 24);
+  ctx.fillText(G.phase === 'menu' ? 'NFL' : (G.poss === 'me' || G.phase === 'cpu' ? downText() : ''), cx, y + 24);
   ctx.font = '500 16px Oswald, sans-serif'; ctx.fillText(`${qLabel()}  |  ${fmtClock(G.clock)}`, cx, y + 41);
   ctx.font = '500 11px Oswald, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillText(G.phase === 'menu' ? '' : 'BALL ON ' + ballOn(G.x), cx, y + 51);
   if (G.phase === 'precall') {
