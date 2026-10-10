@@ -472,11 +472,23 @@ $('scramble').addEventListener('pointerdown', e => {
   if (G.phase === 'live' && P && P.type === 'pass' && !P.thrown && !P.carrier) { P.carrier = P.qb; P.qb.spd = 6.8; hint('QB SCRAMBLE!'); show($('scramble'), false); }
 });
 
+// where a receiver will be in t seconds, following the rest of his route (and stopping where it ends)
+function predictRoute(r, t) {
+  const P = G.play;
+  if (r.mode !== 'route' || !r.route) return { x: r.x + r.vx * t, y: r.y + r.vy * t };
+  let x = r.x, y = r.y, left = r.spd * 0.97 * Math.max(0, t - Math.max(0, r.delay - P.t));
+  for (let i = r.ri; i < r.route.length; i++) {
+    const w = r.route[i], d = Math.hypot(w.x - x, w.y - y);
+    if (d >= left) { const u = d > 0 ? left / d : 0; return { x: x + (w.x - x) * u, y: y + (w.y - y) * u }; }
+    x = w.x; y = w.y; left -= d;
+  }
+  return { x, y };
+}
 function throwTo(r) {
   const P = G.play; if (!P || P.thrown || P.carrier || !r || P.over) return;
   const q = P.qb, BS = 22;
   let tx = r.x, ty = r.y, t = dist(q, r) / BS;
-  for (let i = 0; i < 3; i++) { tx = r.x + r.vx * t; ty = r.y + r.vy * t; t = Math.hypot(tx - q.x, ty - q.y) / BS; }
+  for (let i = 0; i < 4; i++) { const pr = predictRoute(r, t); tx = pr.x; ty = pr.y; t = Math.hypot(tx - q.x, ty - q.y) / BS; }
   tx = clamp(tx, -9, 109); ty = clamp(ty, 0.5, 52.8);
   const d = Math.hypot(tx - q.x, ty - q.y);
   P.thrown = true; P.target = r; G.phase = 'flight';
@@ -644,7 +656,7 @@ function resolvePass() {
   P.def.forEach(d => { const dd = dist(d, L); if (dd < nd) { nd = dd; nearD = d; } });
   if (rd > 1.9) { return endLive({ kind: 'incomplete', x: G.x, text: nd < 2.2 ? 'BROKEN UP!' : 'INCOMPLETE' }); }
   if (nearD && nd < rd - 0.2 && nd < 1.9) {
-    if (Math.random() < (0.18 + 0.2 * (1.9 - nd) / 1.9) * (G.buff.protect ? 0.4 : 1)) return endLive({ kind: 'int', x: L.x, who: nearD });
+    if (Math.random() < (0.12 + 0.18 * (1.9 - nd) / 1.9) * (G.buff.protect ? 0.4 : 1)) return endLive({ kind: 'int', x: L.x, who: nearD });
     return endLive({ kind: 'incomplete', x: G.x, text: 'BROKEN UP!' });
   }
   const contested = nearD && nd < 1.5;
