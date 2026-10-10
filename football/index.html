@@ -244,6 +244,7 @@ function audio() {
   } catch (e) {}
 }
 function tone(f, d = 0.12, type = 'square', vol = 0.08, slide = 0) {
+  if (window.__rec) window.__rec.push(['t', performance.now(), f, d, type, vol, slide]);
   try {
     if (!ac) return;
     const o = ac.createOscillator(), g = ac.createGain();
@@ -745,6 +746,7 @@ $('goFor').onclick = () => { show($('fourth'), false); show($('call'), true); se
 $('punt').onclick = () => { audio(); show($('fourth'), false); doPunt(); };
 $('fg').onclick = () => { audio(); show($('fourth'), false); startFG(); };
 $('hike').onclick = snap;
+$('kickBtn').addEventListener('pointerdown', e => { e.stopPropagation(); audio(); stopMeter(); });
 
 /* ---------------- kicking ---------------- */
 function doPunt() {
@@ -1647,6 +1649,7 @@ if (SERVER_URL) { pollOnline(); setInterval(pollOnline, 12000); }
 
 /* ---------------- feel: sound, impact, captions, replay ---------------- */
 function noiseBurst(d, vol, freq) {
+  if (window.__rec) window.__rec.push(['n', performance.now(), d, vol, freq]);
   try {
     if (!ac) return; const len = Math.floor(ac.sampleRate * d), buf = ac.createBuffer(1, len, ac.sampleRate), ch = buf.getChannelData(0);
     for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
@@ -1674,6 +1677,7 @@ function drawCap() {
   ctx.fillStyle = '#ffd400'; ctx.fillRect(x - w / 2, y + 2, w - 12, 4); ctx.fillStyle = '#fff'; ctx.fillText(c.text, x, y - 6); ctx.globalAlpha = 1;
 }
 function updateFx(dt) {
+  if (window.__rec && G.phase !== 'world') window.__rec.push(['e', performance.now(), G.energy]);
   G.energyT = Math.max(0.25, G.energyT - dt * 0.28); G.energy += (G.energyT - G.energy) * Math.min(1, dt * 3);
   G.zoom += (G.zoomT - G.zoom) * Math.min(1, dt * 7); G.zoomT += (1 - G.zoomT) * Math.min(1, dt * 1.5);
   if (crowdGain && ac && G.phase !== 'world') { try { crowdGain.gain.setTargetAtTime(0.012 + G.energy * 0.075, ac.currentTime, 0.25); } catch (e) {} }
@@ -2196,7 +2200,7 @@ function loop(ts) {
 }
 requestAnimationFrame(loop);
 
-window.__fb = { G, WD, NET, STARS, card, startIntro, enterWorld, goScene, worldAct, coachPre, coachHalf, pressConf, runOut, leaveWorld, snap, selectPlay, throwTo, startGame, buildPlay, stopMeter, doJuke, ptr, keys };
+window.__fb = { nextSnap, beginUserDrive, G, WD, NET, STARS, card, startIntro, enterWorld, goScene, worldAct, coachPre, coachHalf, pressConf, runOut, leaveWorld, snap, selectPlay, throwTo, startGame, buildPlay, stopMeter, doJuke, ptr, keys };
 })();
 </script>
 </body>
