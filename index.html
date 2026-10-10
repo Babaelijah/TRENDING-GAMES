@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Flick the Ball</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#ff6a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Flick">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
 <style>
   :root { --orange:#ff6a1a; --dark:#1b1b22; --cream:#fff3e6; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -22,6 +29,10 @@
   button.pick.sel { background:var(--orange); }
   ol { list-style:none; padding:0; margin:0; width:min(320px,100%); text-align:left; }
   li { display:flex; justify-content:space-between; padding:10px 14px; margin:6px 0; border-radius:12px; background:#2a2a35; font-weight:700; }
+  input { font:inherit; font-weight:700; border:2px solid #44445a; border-radius:14px; padding:12px 14px; background:#2a2a35; color:#fff; width:170px; text-align:center; }
+  input:focus { outline:none; border-color:var(--orange); }
+  button:disabled { opacity:.5; cursor:default; }
+  .small { font-size:13px; opacity:.6; }
   li:first-child { background:var(--orange); }
 </style>
 </head>
@@ -36,6 +47,7 @@
     <p>How many players?</p>
     <div class="row" id="picks"></div>
     <button id="go">PLAY</button>
+    <button id="lbStart" class="alt">🏆 Leaderboard</button>
   </div>
 
   <div id="end" class="overlay hidden">
@@ -43,14 +55,29 @@
     <h1 id="winner">Winner!</h1>
     <ol id="board"></ol>
     <div class="row">
+      <input id="nm" maxlength="16" placeholder="Your name" autocomplete="nickname">
+      <button id="sub">Submit score</button>
+    </div>
+    <div class="row">
       <button id="again">Play again</button>
       <button id="share" class="alt">Share</button>
     </div>
+  </div>
+
+  <div id="lb" class="overlay hidden">
+    <h1>LEADERBOARD</h1>
+    <p class="small" id="lbNote"></p>
+    <ol id="lbList"></ol>
+    <button id="lbClose">Close</button>
   </div>
 </div></div>
 
 <script>
 (() => {
+  // Set this to your deployed leaderboard Worker (see worker/README.md).
+  // Leave empty and scores are kept on this device only.
+  const LEADERBOARD_URL = '';
+
   const W = 720, H = 1280;
   const ROUNDS = 3;
   const BALL_R = 30, HOLE_R = 48;
@@ -81,6 +108,68 @@
       g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + d);
       o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + d);
     } catch (e) {}
+  }
+
+
+  // ---------- leaderboard ----------
+  const LOCAL_KEY = 'flick_scores_v1', NAME_KEY = 'flick_name_v1';
+  let topScore = 0, submitted = false;
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  };
+  const localScores = () => { try { return JSON.parse(store.get(LOCAL_KEY) || '[]'); } catch (e) { return []; } };
+
+  async function fetchScores() {
+    if (LEADERBOARD_URL) {
+      try {
+        const r = await fetch(LEADERBOARD_URL.replace(/\/$/, '') + '/scores');
+        if (r.ok) return { scores: (await r.json()).scores, global: true };
+      } catch (e) {}
+    }
+    return { scores: localScores(), global: false };
+  }
+
+  async function showLeaderboard() {
+    const list = $('lbList');
+    list.innerHTML = '<li><span>Loading…</span></li>';
+    $('lb').classList.remove('hidden');
+    const { scores, global } = await fetchScores();
+    $('lbNote').textContent = global ? 'Top players worldwide'
+      : (LEADERBOARD_URL ? 'Offline: showing best scores on this device' : 'Best scores on this device');
+    list.innerHTML = '';
+    if (!scores.length) { list.innerHTML = '<li><span>No scores yet. Be the first!</span></li>'; return; }
+    scores.slice(0, 10).forEach((s, i) => {
+      const li = document.createElement('li'), a = document.createElement('span'), b = document.createElement('span');
+      a.textContent = `${i + 1}. ${s.name}`; b.textContent = s.score;
+      li.append(a, b); list.appendChild(li);
+    });
+  }
+
+  async function submitScore() {
+    const name = $('nm').value.trim().slice(0, 16);
+    if (!name || topScore < 1 || submitted) { if (!name) $('nm').focus(); return; }
+    store.set(NAME_KEY, name);
+    submitted = true; $('sub').disabled = true; $('sub').textContent = 'Saving…';
+    const local = localScores(); local.push({ name, score: topScore });
+    local.sort((a, b) => b.score - a.score); store.set(LOCAL_KEY, JSON.stringify(local.slice(0, 20)));
+    if (LEADERBOARD_URL) {
+      try {
+        await fetch(LEADERBOARD_URL.replace(/\/$/, '') + '/scores', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, score: topScore }),
+        });
+      } catch (e) {}
+    }
+    $('sub').textContent = 'Saved ✓';
+    showLeaderboard();
+  }
+  $('lbStart').onclick = showLeaderboard;
+  $('lbClose').onclick = () => $('lb').classList.add('hidden');
+  $('sub').onclick = submitScore;
+
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
   // ---------- setup ----------
@@ -133,6 +222,9 @@
     $('winner').textContent = players.length > 1 ? `Player ${sorted[0].id} wins! 🏆` : `You scored ${sorted[0].score}!`;
     $('board').innerHTML = sorted.map(p => `<li><span>Player ${p.id}</span><span>${p.score}</span></li>`).join('');
     $('share').textContent = 'Share';
+    topScore = sorted[0].score; submitted = false;
+    $('nm').value = store.get(NAME_KEY) || '';
+    $('sub').disabled = topScore < 1; $('sub').textContent = 'Submit score';
     $('end').classList.remove('hidden');
     beep(660, .15, 'triangle'); setTimeout(() => beep(880, .25, 'triangle'), 150);
   }

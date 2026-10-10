@@ -1,0 +1,16 @@
+{
+  "name": "Flick the Ball",
+  "short_name": "Flick",
+  "description": "Flick the ball into the hole. Pass the phone around!",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1b1b22",
+  "theme_color": "#ff6a1a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

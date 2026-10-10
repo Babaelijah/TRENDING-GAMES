@@ -1,0 +1,8 @@
+name = "flick-leaderboard"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "flick-leaderboard"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
